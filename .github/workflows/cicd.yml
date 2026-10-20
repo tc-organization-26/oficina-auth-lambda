@@ -10,7 +10,7 @@ permissions:
 env:
   TF_IN_AUTOMATION: "true"
   TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
-  TF_VAR_environment: ${{ github.ref_name == 'main' && 'prod' || 'hom' }}
+  TF_VAR_environment: ${{ (github.ref_name == 'main' || github.ref_name == 'master') && 'prod' || 'hom' }}
 jobs:
   testar:
     runs-on: ubuntu-latest
@@ -50,4 +50,3 @@ jobs:
           secret_id="oficina-${TF_VAR_environment}/auth"
           jq -n '{adminLogin: env.AUTH_LOGIN, adminPassword: env.AUTH_PASSWORD, jwtSecret: env.JWT_SECRET, adminId: env.ADMIN_ID}' \
             | aws secretsmanager put-secret-value --secret-id "$secret_id" --secret-string file:///dev/stdin
-
