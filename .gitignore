@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform/function.zip
+
