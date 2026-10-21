@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  id-token: write
 env:
   TF_IN_AUTOMATION: "true"
   TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
-  TF_VAR_environment: ${{ github.ref_name == 'main' && 'prod' || 'hom' }}
+  TF_VAR_environment: ${{ (github.ref_name == 'main' || github.ref_name == 'master') && 'prod' || 'hom' }}
+  TF_VAR_lab_role_arn: ${{ vars.LAB_ROLE_ARN }}
 jobs:
   testar:
     runs-on: ubuntu-latest
@@ -24,16 +24,21 @@ jobs:
       - working-directory: terraform
         run: terraform fmt -check -recursive && terraform init -backend=false && terraform validate
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     needs: testar
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ (github.ref_name == 'main' || github.ref_name == 'master') && 'producao' || 'homologacao' }}
+      url: ${{ steps.endpoint.outputs.url }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with: { terraform_version: "1.15.9" }
       - uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
       - working-directory: terraform
         run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="key=oficina/auth/${TF_VAR_environment}.tfstate" -backend-config="region=${{ vars.AWS_REGION || 'us-east-1' }}" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
@@ -50,4 +55,15 @@ jobs:
           secret_id="oficina-${TF_VAR_environment}/auth"
           jq -n '{adminLogin: env.AUTH_LOGIN, adminPassword: env.AUTH_PASSWORD, jwtSecret: env.JWT_SECRET, adminId: env.ADMIN_ID}' \
             | aws secretsmanager put-secret-value --secret-id "$secret_id" --secret-string file:///dev/stdin
-
+      - name: Registrar URL do deploy
+        id: endpoint
+        shell: bash
+        run: |
+          api_id="$(aws ssm get-parameter --name "/oficina/${TF_VAR_environment}/edge/http-api-id" --query 'Parameter.Value' --output text)"
+          url="https://${api_id}.execute-api.${{ vars.AWS_REGION || 'us-east-1' }}.amazonaws.com"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Autenticacao publicada"
+            echo "- Login: $url/auth/login"
+            echo "- API: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
