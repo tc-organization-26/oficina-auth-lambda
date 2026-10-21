@@ -2,6 +2,26 @@
 
 Componente serverless responsável pela autenticação externa da plataforma Oficina. Este repositório implementa a função de login, a emissão de JWT e o Lambda Authorizer usado pelo Amazon API Gateway para proteger o acesso à aplicação no EKS.
 
+## Links de deploy e documentação da API
+
+- [Deployments ativos](https://github.com/tc-organization-26/oficina-auth-lambda/deployments): cada execução bem-sucedida registra a URL real do API Gateway do ambiente.
+- [Pipeline CI/CD](https://github.com/tc-organization-26/oficina-auth-lambda/actions/workflows/cicd.yml).
+- Endpoint publicado: abra o deployment ativo e acrescente `/auth/login` à URL exibida.
+- Swagger/OpenAPI da plataforma: consulte a [documentação da Oficina API](https://github.com/tc-organization-26/gestao-oficina-tc-1#links-de-deploy-e-documentação-da-api). A Lambda possui somente o contrato de login documentado neste README e não mantém um Swagger separado.
+
+## Tecnologias utilizadas
+
+- Python 3.13 e biblioteca padrão;
+- AWS Lambda e Lambda Authorizer;
+- Amazon API Gateway HTTP API;
+- AWS Secrets Manager, IAM e CloudWatch Logs;
+- Terraform;
+- GitHub Actions com autenticação OIDC.
+
+## Dockerfile
+
+Não se aplica. As funções são empacotadas como arquivo ZIP pelo provider `archive` do Terraform e executadas no runtime gerenciado do AWS Lambda, sem imagem de contêiner.
+
 ## Responsabilidades deste repositório
 
 - empacotar o código Python das funções;
