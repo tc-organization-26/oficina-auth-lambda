@@ -2,6 +2,8 @@
 
 Componente serverless responsável pela autenticação externa da plataforma Oficina. Este repositório implementa a função de login, a emissão de JWT e o Lambda Authorizer usado pelo Amazon API Gateway para proteger o acesso à aplicação no EKS.
 
+> Para o ambiente educacional, consulte [Execução no AWS Lab](docs/EXECUCAO-LAB.md). As Lambdas reutilizam a `LabRole`, pois o Lab bloqueia a criação de roles IAM próprias.
+
 ## Links de deploy e documentação da API
 
 - [Deployments ativos](https://github.com/tc-organization-26/oficina-auth-lambda/deployments): cada execução bem-sucedida registra a URL real do API Gateway do ambiente.
@@ -16,7 +18,7 @@ Componente serverless responsável pela autenticação externa da plataforma Ofi
 - Amazon API Gateway HTTP API;
 - AWS Secrets Manager, IAM e CloudWatch Logs;
 - Terraform;
-- GitHub Actions com autenticação OIDC.
+- GitHub Actions com credenciais temporárias do AWS Lab.
 
 ## Dockerfile
 
@@ -241,7 +243,7 @@ O workflow `.github/workflows/cicd.yml` possui dois jobs.
 
 ### `deploy`
 
-1. assume a role AWS usando GitHub OIDC;
+1. carrega as credenciais temporárias do AWS Lab;
 2. inicializa o backend S3 do ambiente;
 3. executa `terraform apply`;
 4. atualiza o secret de autenticação com os secrets do GitHub.
@@ -257,9 +259,15 @@ Mapeamento de ambientes:
 
 Normalmente configuradas pelo bootstrap:
 
-- `AWS_ROLE_ARN`
+- `LAB_ROLE_ARN`
 - `AWS_REGION`
 - `TF_STATE_BUCKET`
+
+Organization secrets esperados:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SESSION_TOKEN`
 
 ### Secrets do GitHub
 
