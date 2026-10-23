@@ -23,3 +23,9 @@ variable "jwt_expiration_seconds" {
   type    = number
   default = 3600
 }
+
+variable "database_connect_timeout_seconds" {
+  description = "Timeout da conexao da Lambda com o PostgreSQL."
+  type        = number
+  default     = 5
+}

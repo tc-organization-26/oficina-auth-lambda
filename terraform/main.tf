@@ -5,13 +5,44 @@ locals {
 
 data "archive_file" "function" {
   type        = "zip"
-  source_file = "${path.module}/../src/handler.py"
+  source_dir  = "${path.module}/../package"
   output_path = "${path.module}/function.zip"
 }
 
 data "aws_ssm_parameter" "http_api_id" { name = "/${var.project_name}/${var.environment}/edge/http-api-id" }
 data "aws_ssm_parameter" "http_api_execution_arn" { name = "/${var.project_name}/${var.environment}/edge/http-api-execution-arn" }
 data "aws_ssm_parameter" "app_integration_id" { name = "/${var.project_name}/${var.environment}/edge/app-integration-id" }
+data "aws_ssm_parameter" "vpc_id" { name = "/${var.project_name}/${var.environment}/network/vpc-id" }
+data "aws_ssm_parameter" "private_subnet_ids" { name = "/${var.project_name}/${var.environment}/network/private-subnet-ids" }
+data "aws_ssm_parameter" "database_endpoint" { name = "/${var.project_name}/${var.environment}/database/endpoint" }
+data "aws_ssm_parameter" "database_port" { name = "/${var.project_name}/${var.environment}/database/port" }
+data "aws_ssm_parameter" "database_name" { name = "/${var.project_name}/${var.environment}/database/name" }
+data "aws_ssm_parameter" "database_security_group_id" { name = "/${var.project_name}/${var.environment}/database/security-group-id" }
+data "aws_ssm_parameter" "database_master_secret_arn" { name = "/${var.project_name}/${var.environment}/database/master-secret-arn" }
+
+resource "aws_security_group" "login_lambda" {
+  name_prefix = "${local.name}-login-lambda-"
+  description = "Acesso da Lambda de autenticacao ao PostgreSQL"
+  vpc_id      = data.aws_ssm_parameter.vpc_id.value
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle { create_before_destroy = true }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "database_from_login_lambda" {
+  security_group_id            = data.aws_ssm_parameter.database_security_group_id.value
+  referenced_security_group_id = aws_security_group.login_lambda.id
+  from_port                    = tonumber(data.aws_ssm_parameter.database_port.value)
+  to_port                      = tonumber(data.aws_ssm_parameter.database_port.value)
+  ip_protocol                  = "tcp"
+  description                  = "Lambda de autenticacao por CPF"
+}
 
 resource "aws_secretsmanager_secret" "auth" {
   name                    = "${local.name}/auth"
@@ -25,8 +56,24 @@ resource "aws_lambda_function" "login" {
   handler          = "handler.login"
   filename         = data.archive_file.function.output_path
   source_code_hash = data.archive_file.function.output_base64sha256
-  timeout          = 10
-  environment { variables = { AUTH_SECRET_ID = aws_secretsmanager_secret.auth.id, JWT_EXPIRATION_SECONDS = tostring(var.jwt_expiration_seconds) } }
+  timeout          = 15
+
+  vpc_config {
+    subnet_ids         = jsondecode(data.aws_ssm_parameter.private_subnet_ids.value)
+    security_group_ids = [aws_security_group.login_lambda.id]
+  }
+
+  environment {
+    variables = {
+      AUTH_SECRET_ID             = aws_secretsmanager_secret.auth.id
+      DB_HOST                    = data.aws_ssm_parameter.database_endpoint.value
+      DB_PORT                    = data.aws_ssm_parameter.database_port.value
+      DB_NAME                    = data.aws_ssm_parameter.database_name.value
+      DB_SECRET_ARN              = data.aws_ssm_parameter.database_master_secret_arn.value
+      DB_CONNECT_TIMEOUT_SECONDS = tostring(var.database_connect_timeout_seconds)
+      JWT_EXPIRATION_SECONDS     = tostring(var.jwt_expiration_seconds)
+    }
+  }
 }
 
 resource "aws_lambda_function" "authorizer" {

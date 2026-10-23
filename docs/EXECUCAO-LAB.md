@@ -7,9 +7,10 @@ Este repositório é executado depois da infraestrutura EKS/API Gateway e do RDS
 ```text
 POST /auth/login
     -> API Gateway
-    -> Lambda login
-    -> Secrets Manager
-    -> JWT HS256
+    -> Lambda login nas sub-redes privadas
+    -> valida CPF
+    -> consulta id e ativo no RDS
+    -> JWT HS256 com papel CLIENTE
 
 Demais rotas
     -> API Gateway
@@ -33,13 +34,10 @@ AWS_SESSION_TOKEN
 Repository secrets específicos deste repositório:
 
 ```text
-AUTH_LOGIN
-AUTH_PASSWORD
 JWT_SECRET
-ADMIN_ID
 ```
 
-`ADMIN_ID` é um UUID criado para representar o administrador no claim `sub`. `JWT_SECRET` deve conter pelo menos 32 bytes aleatórios.
+`JWT_SECRET` deve conter pelo menos 32 bytes aleatórios. Credenciais administrativas antigas não são mais usadas pelo login serverless.
 
 Variables configuradas pelo bootstrap:
 
@@ -72,7 +70,8 @@ Antes desta etapa, confirme:
 1. `oficina-k8s-infra/terraform.yml` concluído;
 2. `oficina-db-infra/terraform.yml` concluído;
 3. parâmetros `/oficina/hom/edge/*` existentes no SSM;
-4. credenciais temporárias ainda válidas.
+4. cliente `00361937040` cadastrado e ativo pela migration da aplicação;
+5. credenciais temporárias ainda válidas.
 
 ## Execução
 
@@ -95,13 +94,13 @@ gh run watch ID `
   --exit-status
 ```
 
-O workflow testa o Python, valida o Terraform, cria o secret, publica as funções, configura a integração/authorizer/rotas e grava os valores administrativos no Secrets Manager.
+O workflow testa o Python, valida o Terraform, empacota o driver PostgreSQL, cria o secret JWT, publica as funções e configura a integração, o authorizer e as rotas.
 
 ## State e ambientes
 
 ```text
 fase-3 ou homologacao -> ambiente hom
-main ou master        -> ambiente prod
+main                  -> ambiente prod
 ```
 
 States:
@@ -134,13 +133,12 @@ $apiId = aws ssm get-parameter `
   --output text
 
 $url = "https://$apiId.execute-api.us-east-1.amazonaws.com"
-$senha = Read-Host "AUTH_PASSWORD"
 
 Invoke-RestMethod `
   -Method Post `
   -Uri "$url/auth/login" `
   -ContentType application/json `
-  -Body (@{ login = "admin"; senha = $senha } | ConvertTo-Json)
+  -Body (@{ cpf = "003.619.370-40" } | ConvertTo-Json)
 ```
 
-Não publique o JWT, a senha ou o conteúdo do Secrets Manager nos logs.
+Não publique o JWT ou o conteúdo do Secrets Manager nos logs.
