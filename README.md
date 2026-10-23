@@ -1,98 +1,29 @@
-# Oficina — Lambda de Autenticação
+# Oficina — Lambda de autenticação por CPF
 
-Componente serverless responsável pela autenticação externa da plataforma Oficina. Este repositório implementa a função de login, a emissão de JWT e o Lambda Authorizer usado pelo Amazon API Gateway para proteger o acesso à aplicação no EKS.
+Componente serverless responsável por autenticar clientes por CPF, consultar sua existência e seu status no PostgreSQL gerenciado e emitir o JWT usado nas APIs protegidas da Oficina.
 
-> Para o ambiente educacional, consulte [Execução no AWS Lab](docs/EXECUCAO-LAB.md). As Lambdas reutilizam a `LabRole`, pois o Lab bloqueia a criação de roles IAM próprias.
-
-## Fluxo de branches e promoção
-
-O workflow `.github/workflows/promote.yml` usa o `GITHUB_TOKEN` nativo do GitHub para abrir os Pull Requests de promoção:
-
-```text
-push em fase-3 → PR para homologacao
-merge em homologacao → PR para main
-merge em main → implantação em produção
-```
-
-Os merges são manuais e devem ocorrer somente depois da aprovação e dos checks. Em **Settings → Actions → General → Workflow permissions**, mantenha **Read and write permissions** e **Allow GitHub Actions to create and approve pull requests** habilitados. Nenhum secret adicional é necessário para criar os PRs.
-
-## Links de deploy e documentação da API
-
-- [Deployments ativos](https://github.com/tc-organization-26/oficina-auth-lambda/deployments): cada execução bem-sucedida registra a URL real do API Gateway do ambiente.
-- [Pipeline CI/CD](https://github.com/tc-organization-26/oficina-auth-lambda/actions/workflows/cicd.yml).
-- Endpoint publicado: abra o deployment ativo e acrescente `/auth/login` à URL exibida.
-- Swagger/OpenAPI da plataforma: consulte a [documentação da Oficina API](https://github.com/tc-organization-26/gestao-oficina-tc-1#links-de-deploy-e-documentação-da-api). A Lambda possui somente o contrato de login documentado neste README e não mantém um Swagger separado.
-
-## Tecnologias utilizadas
-
-- Python 3.13 e biblioteca padrão;
-- AWS Lambda e Lambda Authorizer;
-- Amazon API Gateway HTTP API;
-- AWS Secrets Manager, IAM e CloudWatch Logs;
-- Terraform;
-- GitHub Actions com credenciais temporárias do AWS Lab.
-
-## Dockerfile
-
-Não se aplica. As funções são empacotadas como arquivo ZIP pelo provider `archive` do Terraform e executadas no runtime gerenciado do AWS Lambda, sem imagem de contêiner.
-
-## Responsabilidades deste repositório
-
-- empacotar o código Python das funções;
-- criar a Lambda de login;
-- criar a Lambda Authorizer;
-- criar a role de execução e as permissões mínimas das funções;
-- criar o secret de autenticação no AWS Secrets Manager;
-- integrar a rota pública `POST /auth/login` ao API Gateway;
-- proteger as demais rotas com o authorizer;
-- popular o secret de autenticação a partir dos secrets do GitHub Actions.
-
-Este repositório não cria o API Gateway, o EKS ou o banco. Esses componentes pertencem aos repositórios de infraestrutura.
+![Arquitetura AWS da autenticação por CPF](docs/arquitetura-aws-autenticacao-cpf.png)
 
 ## Fluxo de autenticação
 
 ```text
-POST /auth/login
-  -> API Gateway
-     -> Lambda login
-        -> Secrets Manager
-        -> valida login e senha
-        -> gera JWT HS256
+POST /auth/login { cpf }
+  -> Amazon API Gateway
+     -> Lambda login em sub-redes privadas
+        -> valida formato e dígitos verificadores do CPF
+        -> lê as credenciais do RDS no Secrets Manager
+        -> consulta cliente por cpf_cnpj
+        -> exige cliente existente e ativo
+        -> emite JWT HS256 com sub=<UUID do cliente> e papel=CLIENTE
 
-Authorization: Bearer JWT
+Authorization: Bearer <JWT>
   -> API Gateway
      -> Lambda Authorizer
         -> valida assinatura e expiração
-        -> libera ou bloqueia a chamada
-     -> integração privada da aplicação no EKS
+        -> encaminha a requisição ao NLB privado e à aplicação no EKS
 ```
 
-A rota de login é pública. As rotas `ANY /` e `ANY /{proxy+}` usam autorização `CUSTOM` e encaminham chamadas autorizadas para a integração da aplicação.
-
-## Implementação
-
-O arquivo `src/handler.py` expõe dois handlers:
-
-- `handler.login`: autentica e retorna o JWT;
-- `handler.authorizer`: valida o Bearer token e retorna uma resposta simples do API Gateway.
-
-As funções usam:
-
-- runtime Python 3.13;
-- JWT assinado com HMAC SHA-256 (`HS256`);
-- segredo lido do Secrets Manager e mantido em cache durante o ciclo de vida do runtime;
-- tempo de expiração configurável, com padrão de 3600 segundos.
-
-### Claims do JWT
-
-| Claim | Conteúdo |
-| --- | --- |
-| `sub` | Identificador do usuário administrativo |
-| `papel` | `ADMINISTRADOR` |
-| `iat` | Instante de emissão |
-| `exp` | Instante de expiração |
-
-O contexto enviado pelo authorizer contém `subject` e `role`.
+O login é a única rota pública. As rotas `ANY /` e `ANY /{proxy+}` usam autorização `CUSTOM`.
 
 ## Contrato da API
 
@@ -103,10 +34,11 @@ POST /auth/login
 Content-Type: application/json
 ```
 
+O CPF pode ser enviado somente com dígitos ou com pontuação. Enquanto o sistema ainda não possui cadastro de clientes, o exemplo abaixo utiliza um CPF fictício criado pela migration exclusivamente para testes e demonstrações:
+
 ```json
 {
-  "login": "admin",
-  "senha": "senha-configurada"
+  "cpf": "003.619.370-40"
 }
 ```
 
@@ -118,13 +50,13 @@ Resposta de sucesso:
 }
 ```
 
-Respostas possíveis:
-
 | Status | Situação |
 | --- | --- |
-| `200` | Credenciais válidas |
-| `401` | Login ou senha inválidos |
-| `400` | JSON inválido ou configuração incompleta |
+| `200` | CPF válido, cliente existente e ativo; JWT emitido |
+| `400` | Corpo inválido ou CPF com formato/dígitos verificadores inválidos |
+| `403` | Cliente encontrado, porém inativo |
+| `404` | Nenhum cliente encontrado para o CPF |
+| `500` | Falha inesperada ao consultar dependências |
 
 ### Chamada protegida
 
@@ -133,83 +65,136 @@ GET /clientes
 Authorization: Bearer eyJ...
 ```
 
-Token ausente, assinatura incorreta ou token expirado resulta em `isAuthorized: false` no authorizer.
+Token ausente, adulterado ou expirado é recusado pelo Lambda Authorizer.
 
-## Secret de autenticação
+## JWT
 
-O Terraform cria um secret chamado:
+O token é assinado com HMAC SHA-256 (`HS256`) e possui validade padrão de 3600 segundos.
 
-```text
-oficina-ENV/auth
+| Claim | Conteúdo |
+| --- | --- |
+| `sub` | UUID do cliente retornado pelo banco |
+| `papel` | `CLIENTE` |
+| `iat` | Instante de emissão |
+| `exp` | Instante de expiração |
+
+O mesmo `JWT_SECRET` é entregue à aplicação no EKS, permitindo que o Spring Security valide o token depois da autorização no Gateway.
+
+## Consulta ao banco
+
+A Lambda executa uma consulta parametrizada equivalente a:
+
+```sql
+SELECT id, ativo
+FROM cliente
+WHERE cpf_cnpj = ?;
 ```
 
-Conteúdo esperado:
+O acesso usa `pg8000`, um driver PostgreSQL Python empacotado junto da função. As credenciais não ficam no código nem no state deste repositório: são lidas do secret gerenciado pelo RDS.
 
-```json
-{
-  "adminLogin": "admin",
-  "adminPassword": "senha-segura",
-  "jwtSecret": "chave-de-assinatura-com-32-bytes-ou-mais",
-  "adminId": "00000000-0000-0000-0000-000000000001"
-}
-```
+O schema da aplicação cadastra o cliente inicial abaixo. O CPF é armazenado sem pontuação, no mesmo formato usado pela consulta após a normalização:
 
-O workflow grava uma nova versão do secret após o `terraform apply`. O conteúdo não é armazenado no state Terraform nem no código-fonte.
+| Campo | Valor |
+| --- | --- |
+| `id` | `00000000-0000-0000-0000-000000000001` |
+| `nome` | `Cliente Oficina` |
+| `cpf_cnpj` | `00361937040` — CPF fictício de teste |
+| `telefone` | `<TELEFONE_DO_CLIENTE_DE_TESTE>` |
+| `email` | `cliente@oficina.local` |
+| `ativo` | `true` |
 
-## Dependências
+## Rede e segurança
 
-Execute primeiro `oficina-k8s-infra`. Este Terraform consulta:
+O Terraform:
+
+- coloca a Lambda de login nas sub-redes privadas da VPC;
+- cria um security group exclusivo para a Lambda;
+- libera no security group do RDS somente tráfego TCP da Lambda para a porta publicada pelo banco, normalmente `5432`;
+- mantém o RDS privado;
+- utiliza conexão TLS com o PostgreSQL;
+- mantém a Lambda Authorizer fora da VPC, pois ela precisa somente validar o JWT e acessar o Secrets Manager.
+
+As sub-redes privadas precisam de saída para o Secrets Manager. A infraestrutura Kubernetes habilita NAT Gateway por padrão através de `enable_nat_gateway = true`.
+
+No ambiente educacional, as funções reutilizam a `LabRole`. Ela precisa permitir criação e remoção de interfaces de rede da Lambda, leitura dos parâmetros SSM e leitura dos secrets utilizados.
+
+## Dependências e ordem de implantação
+
+Use esta ordem:
+
+1. `oficina-k8s-infra`: cria VPC, sub-redes, EKS, NLB e API Gateway;
+2. `oficina-db-infra`: cria o RDS, seu security group e o secret de credenciais;
+3. `oficina-auth-lambda`: cria as funções, integração, authorizer e acesso Lambda → RDS;
+4. aplicação principal: publica a imagem e executa no EKS.
+
+Este Terraform consulta os seguintes parâmetros SSM:
 
 ```text
 /oficina/ENV/edge/http-api-id
 /oficina/ENV/edge/http-api-execution-arn
 /oficina/ENV/edge/app-integration-id
+/oficina/ENV/network/vpc-id
+/oficina/ENV/network/private-subnet-ids
+/oficina/ENV/database/endpoint
+/oficina/ENV/database/port
+/oficina/ENV/database/name
+/oficina/ENV/database/security-group-id
+/oficina/ENV/database/master-secret-arn
 ```
 
-Esses parâmetros identificam o API Gateway já existente e a integração privada que aponta para a aplicação no EKS.
+## Secrets
 
-O repositório de banco não é uma dependência direta desta implementação.
+O Terraform cria `oficina-ENV/auth`. O workflow grava nele somente:
+
+```json
+{
+  "jwtSecret": "chave-aleatoria-com-pelo-menos-32-bytes"
+}
+```
+
+Configure `JWT_SECRET` no GitHub Environment de homologação. Os antigos secrets `AUTH_LOGIN`, `AUTH_PASSWORD` e `ADMIN_ID` não são mais utilizados.
 
 ## Recursos Terraform
 
 | Recurso | Finalidade |
 | --- | --- |
-| `archive_file` | Gera `function.zip` a partir de `src/handler.py` |
-| `aws_secretsmanager_secret` | Armazena credenciais e chave JWT |
-| `aws_iam_role` | Role das funções Lambda |
-| `aws_iam_role_policy_attachment` | Permissão de logs no CloudWatch |
-| `aws_iam_role_policy` | Leitura exclusiva do secret de autenticação |
-| `aws_lambda_function.login` | Endpoint de login |
-| `aws_lambda_function.authorizer` | Autorizador do API Gateway |
-| `aws_apigatewayv2_integration` | Integra o login à Lambda |
-| `aws_apigatewayv2_authorizer` | Registra o REQUEST authorizer |
-| `aws_apigatewayv2_route` | Cria a rota pública e protege as demais |
-| `aws_lambda_permission` | Permite invocação pelo API Gateway |
+| `aws_lambda_function.login` | Valida CPF, consulta o cliente e emite JWT |
+| `aws_lambda_function.authorizer` | Valida Bearer JWT no API Gateway |
+| `aws_security_group.login_lambda` | Identidade de rede da Lambda de login |
+| `aws_vpc_security_group_ingress_rule.database_from_login_lambda` | Libera Lambda → RDS na porta do banco |
+| `aws_secretsmanager_secret.auth` | Armazena a chave JWT |
+| `aws_apigatewayv2_integration.login` | Integra `POST /auth/login` à Lambda |
+| `aws_apigatewayv2_authorizer.jwt` | Protege as rotas da aplicação |
+| `archive_file.function` | Empacota handler e driver PostgreSQL |
 
-## Variáveis Terraform
+## Testes
 
-| Variável | Padrão | Descrição |
-| --- | --- | --- |
-| `aws_region` | `us-east-1` | Região AWS |
-| `project_name` | `oficina` | Prefixo dos recursos e caminhos SSM |
-| `environment` | `dev` | Ambiente atual |
-| `jwt_expiration_seconds` | `3600` | Validade do token em segundos |
+Os testes unitários não acessam a AWS nem um banco real. Eles cobrem:
 
-## Outputs
+- CPF inválido;
+- cliente inexistente;
+- cliente inativo;
+- cliente ativo com emissão do token `CLIENTE`;
+- normalização de CPF formatado;
+- assinatura e rejeição de JWT adulterado.
 
-- `login_function_name`
-- `authorizer_function_name`
-- `auth_secret_arn`
-
-## Testes locais
-
-Os testes não acessam a AWS. Eles verificam geração, leitura e rejeição de JWT com assinatura inválida.
+Execute:
 
 ```powershell
 python -m unittest discover -s tests
 ```
 
-## Validação local do Terraform
+## Empacotamento local
+
+Antes de executar `terraform validate`, `plan` ou `apply`, monte o diretório ignorado `package`:
+
+```powershell
+New-Item -ItemType Directory -Force package | Out-Null
+python -m pip install --requirement requirements.txt --target package
+Copy-Item src/handler.py package/handler.py -Force
+```
+
+Depois:
 
 ```powershell
 Set-Location terraform
@@ -218,117 +203,44 @@ terraform init -backend=false
 terraform validate
 ```
 
-O arquivo `terraform/function.zip` é gerado pelo provider Archive e não deve ser versionado.
-
-## Aplicação manual
-
-Exemplo para homologação:
-
-```powershell
-$env:TF_VAR_environment = "hom"
-$env:TF_VAR_aws_region = "us-east-1"
-
-Set-Location terraform
-terraform init `
-  -backend-config="bucket=SEU_BUCKET" `
-  -backend-config="key=oficina/auth/hom.tfstate" `
-  -backend-config="region=us-east-1" `
-  -backend-config="encrypt=true" `
-  -backend-config="use_lockfile=true"
-
-terraform plan
-terraform apply
-```
-
-Depois do apply, grave o conteúdo esperado no secret `oficina-hom/auth` antes de chamar a rota de login.
-
 ## CI/CD
 
-O workflow `.github/workflows/cicd.yml` possui dois jobs.
+O workflow `.github/workflows/cicd.yml` executa em Pull Requests e nas branches `homologacao` e `main`.
 
-### `testar`
+O job de validação:
 
-1. configura Python 3.13;
-2. executa os testes unitários;
-3. configura Terraform;
-4. executa `fmt`, `init -backend=false` e `validate`.
+1. executa os testes unitários;
+2. instala `pg8000` em `package` e copia o handler;
+3. executa `terraform fmt`, `init` e `validate`.
 
-### `deploy`
+O job de deploy:
 
-1. carrega as credenciais temporárias do AWS Lab;
-2. inicializa o backend S3 do ambiente;
-3. executa `terraform apply`;
-4. atualiza o secret de autenticação com os secrets do GitHub.
+1. remonta o pacote da Lambda;
+2. carrega as credenciais AWS;
+3. aplica o Terraform;
+4. grava `JWT_SECRET` no Secrets Manager;
+5. registra a URL do API Gateway no deployment do GitHub.
 
-Mapeamento de ambientes:
-
-| Branch | Ambiente | Chave do state |
+| Branch | Ambiente | State |
 | --- | --- | --- |
 | `homologacao` | `hom` | `oficina/auth/hom.tfstate` |
-| `main` ou `master` | `prod` | `oficina/auth/prod.tfstate` |
+| `main` | `prod` | `oficina/auth/prod.tfstate` |
 
-### Variables do GitHub
+Variáveis esperadas: `AWS_REGION`, `LAB_ROLE_ARN` e `TF_STATE_BUCKET`.
 
-Normalmente configuradas pelo bootstrap:
-
-- `LAB_ROLE_ARN`
-- `AWS_REGION`
-- `TF_STATE_BUCKET`
-
-Organization secrets esperados:
-
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_SESSION_TOKEN`
-
-### Secrets do GitHub
-
-| Secret | Uso |
-| --- | --- |
-| `AUTH_LOGIN` | Login administrativo |
-| `AUTH_PASSWORD` | Senha administrativa |
-| `JWT_SECRET` | Assinatura dos tokens; use pelo menos 32 bytes aleatórios |
-| `ADMIN_ID` | Identificador enviado no claim `sub` |
-
-Use valores diferentes por GitHub Environment quando separar homologação e produção.
-
-## Verificação após o deploy
-
-Obtenha a URL pelo repositório Kubernetes:
-
-```powershell
-aws ssm get-parameter `
-  --name /oficina/hom/edge/http-api-id
-```
-
-Ou use o output `api_gateway_url` de `oficina-k8s-infra`. Depois:
-
-```powershell
-$body = @{ login = "admin"; senha = "senha-configurada" } | ConvertTo-Json
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "https://API_ID.execute-api.us-east-1.amazonaws.com/auth/login" `
-  -ContentType "application/json" `
-  -Body $body
-```
-
-Também é possível conferir as funções:
-
-```powershell
-aws lambda get-function --function-name oficina-hom-login
-aws lambda get-function --function-name oficina-hom-authorizer
-```
+Secrets esperados: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` e `JWT_SECRET`.
 
 ## Estrutura
 
 ```text
 .
 ├── .github/workflows/cicd.yml
+├── requirements.txt
 ├── src/handler.py
 ├── tests/test_handler.py
 └── terraform/
     ├── main.tf
-    ├── variables.tf
     ├── outputs.tf
+    ├── variables.tf
     └── versions.tf
 ```
