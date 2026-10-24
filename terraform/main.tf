@@ -118,6 +118,15 @@ resource "aws_apigatewayv2_route" "app_root" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
+# Public health status only; application returns no dependency details.
+resource "aws_apigatewayv2_route" "health" {
+  for_each           = toset(["/actuator/health", "/actuator/health/readiness"])
+  api_id             = data.aws_ssm_parameter.http_api_id.value
+  route_key          = "GET ${each.value}"
+  target             = "integrations/${data.aws_ssm_parameter.app_integration_id.value}"
+  authorization_type = "NONE"
+}
+
 resource "aws_apigatewayv2_route" "app_proxy" {
   api_id             = data.aws_ssm_parameter.http_api_id.value
   route_key          = "ANY /{proxy+}"
