@@ -60,7 +60,9 @@ jobs:
       - working-directory: terraform
         run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="key=oficina/auth/${TF_VAR_environment}.tfstate" -backend-config="region=${{ vars.AWS_REGION || 'us-east-1' }}" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
       - working-directory: terraform
-        run: terraform apply -lock-timeout=5m -auto-approve
+        run: terraform plan -lock-timeout=5m -out=tfplan
+      - working-directory: terraform
+        run: terraform apply -lock-timeout=5m -auto-approve tfplan
       - name: Atualizar segredo de autenticacao
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
