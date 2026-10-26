@@ -1,16 +1,20 @@
 name: CI/CD - Lambda de Autenticacao
 on:
-  pull_request:
   push:
-    branches: [main, master, homologacao]
+    branches: [main, homologacao, fase-3]
   workflow_dispatch:
+concurrency:
+  group: terraform-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
 permissions:
   contents: read
-  id-token: write
 env:
   TF_IN_AUTOMATION: "true"
   TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
   TF_VAR_environment: ${{ github.ref_name == 'main' && 'prod' || 'hom' }}
+  TF_VAR_lab_role_arn: ${{ vars.LAB_ROLE_ARN }}
+  TF_VAR_datadog_site: ${{ vars.DD_SITE || 'datadoghq.com' }}
+  TF_VAR_datadog_version: ${{ github.sha }}
 jobs:
   testar:
     runs-on: ubuntu-latest
@@ -19,35 +23,200 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.13" }
       - run: python -m unittest discover -s tests
+      - name: Montar pacote da Lambda
+        shell: bash
+        run: |
+          mkdir -p package
+          python -m pip install --requirement requirements.txt --target package
+          cp src/*.py package/
+          PYTHONPATH=package python -c 'import pg8000.dbapi, scramp; assert callable(scramp.make_channel_binding)'
       - uses: hashicorp/setup-terraform@v3
         with: { terraform_version: "1.15.9" }
       - working-directory: terraform
         run: terraform fmt -check -recursive && terraform init -backend=false && terraform validate
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'homologacao')
     needs: testar
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+      url: ${{ steps.endpoint.outputs.url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - name: Montar pacote da Lambda
+        shell: bash
+        run: |
+          mkdir -p package
+          python -m pip install --requirement requirements.txt --target package
+          cp src/*.py package/
       - uses: hashicorp/setup-terraform@v3
         with: { terraform_version: "1.15.9" }
       - uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      - name: Reutilizar chave Datadog compartilhada pela API
+        run: |
+          secret_id="oficina-${TF_VAR_environment}/datadog"
+          if secret_arn="$(aws secretsmanager describe-secret --secret-id "$secret_id" --query ARN --output text 2>/tmp/datadog-secret-error)"; then
+            echo 'TF_VAR_datadog_enabled=true' >> "$GITHUB_ENV"
+            echo "TF_VAR_datadog_api_key_secret_arn=$secret_arn" >> "$GITHUB_ENV"
+          elif grep -q ResourceNotFoundException /tmp/datadog-secret-error; then
+            echo 'TF_VAR_datadog_enabled=false' >> "$GITHUB_ENV"
+            echo '::warning::Publique a API primeiro e reexecute este workflow para ativar o Datadog nas Lambdas.'
+          else
+            echo '::error::Nao foi possivel consultar o secret compartilhado Datadog.'
+            exit 1
+          fi
       - working-directory: terraform
         run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="key=oficina/auth/${TF_VAR_environment}.tfstate" -backend-config="region=${{ vars.AWS_REGION || 'us-east-1' }}" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
       - working-directory: terraform
-        run: terraform apply -auto-approve
+        run: terraform plan -lock-timeout=5m -out=tfplan
+      - working-directory: terraform
+        run: terraform apply -lock-timeout=5m -auto-approve tfplan
       - name: Atualizar segredo de autenticacao
         env:
-          AUTH_LOGIN: ${{ secrets.AUTH_LOGIN }}
-          AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_ID: ${{ secrets.ADMIN_ID }}
         shell: bash
         run: |
           secret_id="oficina-${TF_VAR_environment}/auth"
-          jq -n '{adminLogin: env.AUTH_LOGIN, adminPassword: env.AUTH_PASSWORD, jwtSecret: env.JWT_SECRET, adminId: env.ADMIN_ID}' \
+          jq -n '{jwtSecret: env.JWT_SECRET}' \
             | aws secretsmanager put-secret-value --secret-id "$secret_id" --secret-string file:///dev/stdin
+      - name: Registrar URL do deploy
+        id: endpoint
+        shell: bash
+        run: |
+          api_id="$(aws ssm get-parameter --name "/oficina/${TF_VAR_environment}/edge/http-api-id" --query 'Parameter.Value' --output text)"
+          url="https://${api_id}.execute-api.${{ vars.AWS_REGION || 'us-east-1' }}.amazonaws.com"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Autenticacao publicada"
+            echo "- Login: $url/auth/login"
+            echo "- API: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
 
+  promover-producao:
+    name: Abrir PR para produção após deploy
+    if: github.event_name != 'pull_request' && github.ref_name == 'homologacao'
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Abrir ou manter Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: main
+          PR_TITLE: "chore: promover homologação para produção"
+        shell: bash
+        run: |
+          existing_pr="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$GITHUB_REF_NAME" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [[ -n "$existing_pr" ]]; then
+            echo "O PR #${existing_pr} já está aberto. Os novos commits foram adicionados automaticamente."
+            exit 0
+          fi
+
+          ahead="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/compare/${BASE_BRANCH}...${GITHUB_REF_NAME}" \
+            --jq '.ahead_by')"
+
+          if [[ "$ahead" == "0" ]]; then
+            echo "Não há commits para promover de ${GITHUB_REF_NAME} para ${BASE_BRANCH}."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --head "$GITHUB_REF_NAME" \
+            --title "$PR_TITLE" \
+            --body "Pull Request criado automaticamente após deploy bem-sucedido em \`${GITHUB_REF_NAME}\`.
+              Valide os checks e faça o merge manualmente para promover o código para \`${BASE_BRANCH}\`."
+
+  promover-homologacao:
+    name: Abrir PR para homologação após validação
+    if: github.event_name != 'pull_request' && github.ref_name == 'fase-3'
+    needs: testar
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Definir fluxo de promoção
+        id: flow
+        shell: bash
+        run: |
+          case "$GITHUB_REF_NAME" in
+            fase-3)
+              echo "base=homologacao" >> "$GITHUB_OUTPUT"
+              echo "title=chore: promover fase-3 para homologação" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Criar branch homologacao quando ainda não existir
+        if: steps.flow.outputs.base == 'homologacao'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ steps.flow.outputs.base }}
+        shell: bash
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${BASE_BRANCH}" >/dev/null 2>&1; then
+            echo "A branch ${BASE_BRANCH} já existe."
+            exit 0
+          fi
+
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/heads/${BASE_BRANCH}" \
+            -f sha="$main_sha"
+          echo "Branch ${BASE_BRANCH} criada a partir de main."
+
+      - name: Abrir ou manter Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ steps.flow.outputs.base }}
+          PR_TITLE: ${{ steps.flow.outputs.title }}
+        shell: bash
+        run: |
+          existing_pr="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$GITHUB_REF_NAME" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [[ -n "$existing_pr" ]]; then
+            echo "O PR #${existing_pr} já está aberto. Os novos commits foram adicionados automaticamente."
+            exit 0
+          fi
+
+          ahead="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/compare/${BASE_BRANCH}...${GITHUB_REF_NAME}" \
+            --jq '.ahead_by')"
+
+          if [[ "$ahead" == "0" ]]; then
+            echo "Não há commits para promover de ${GITHUB_REF_NAME} para ${BASE_BRANCH}."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --head "$GITHUB_REF_NAME" \
+            --title "$PR_TITLE" \
+            --body "Pull Request criado automaticamente após validação bem-sucedida em \`${GITHUB_REF_NAME}\`.
+              Valide os checks e faça o merge manualmente para promover o código para \`${BASE_BRANCH}\`."
