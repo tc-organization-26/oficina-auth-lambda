@@ -53,6 +53,8 @@ class ObservabilityTest(unittest.TestCase):
         entry = self.logs()[-1]
         self.assertEqual("integration.failed", entry["event"])
         self.assertEqual("postgresql", entry["integracao"])
+        self.assertTrue(entry["error_stack"])
+        self.assertEqual("broken", entry["error_stack"][-1]["function"])
         self.assertNotIn("password", self.stream.getvalue())
         self.assertNotIn("00361937040", self.stream.getvalue())
 

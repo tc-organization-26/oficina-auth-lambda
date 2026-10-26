@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 
@@ -58,8 +59,12 @@ def integration(name):
             try:
                 return function(*args, **kwargs)
             except Exception as failure:
+                frames = traceback.extract_tb(failure.__traceback__)
                 emit(logging.ERROR, "integration.failed", "Falha na integracao",
-                     integracao=name, operacao=function.__name__, error_type=type(failure).__name__)
+                     integracao=name, operacao=function.__name__, error_type=type(failure).__name__,
+                     error_stack=[{"file": os.path.basename(frame.filename), "line": frame.lineno,
+                                   "function": frame.name} for frame in frames],
+                     error_attribute=getattr(failure, "name", None))
                 raise
         return wrapped
     return decorate
