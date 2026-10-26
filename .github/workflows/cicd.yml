@@ -1,6 +1,5 @@
 name: CI/CD - Lambda de Autenticacao
 on:
-  pull_request:
   push:
     branches: [main, homologacao, fase-3]
   workflow_dispatch:
