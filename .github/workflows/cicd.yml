@@ -2,7 +2,7 @@ name: CI/CD - Lambda de Autenticacao
 on:
   pull_request:
   push:
-    branches: [main, homologacao]
+    branches: [main, homologacao, fase-3]
   workflow_dispatch:
 concurrency:
   group: terraform-${{ github.repository }}-${{ github.ref_name }}
@@ -30,12 +30,13 @@ jobs:
           mkdir -p package
           python -m pip install --requirement requirements.txt --target package
           cp src/*.py package/
+          PYTHONPATH=package python -c 'import pg8000.dbapi, scramp; assert callable(scramp.make_channel_binding)'
       - uses: hashicorp/setup-terraform@v3
         with: { terraform_version: "1.15.9" }
       - working-directory: terraform
         run: terraform fmt -check -recursive && terraform init -backend=false && terraform validate
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'homologacao')
     needs: testar
     runs-on: ubuntu-latest
     environment:
@@ -98,3 +99,125 @@ jobs:
             echo "- Login: $url/auth/login"
             echo "- API: $url"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  promover-producao:
+    name: Abrir PR para produção após deploy
+    if: github.event_name != 'pull_request' && github.ref_name == 'homologacao'
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Abrir ou manter Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: main
+          PR_TITLE: "chore: promover homologação para produção"
+        shell: bash
+        run: |
+          existing_pr="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$GITHUB_REF_NAME" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [[ -n "$existing_pr" ]]; then
+            echo "O PR #${existing_pr} já está aberto. Os novos commits foram adicionados automaticamente."
+            exit 0
+          fi
+
+          ahead="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/compare/${BASE_BRANCH}...${GITHUB_REF_NAME}" \
+            --jq '.ahead_by')"
+
+          if [[ "$ahead" == "0" ]]; then
+            echo "Não há commits para promover de ${GITHUB_REF_NAME} para ${BASE_BRANCH}."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --head "$GITHUB_REF_NAME" \
+            --title "$PR_TITLE" \
+            --body "Pull Request criado automaticamente após deploy bem-sucedido em \`${GITHUB_REF_NAME}\`.
+              Valide os checks e faça o merge manualmente para promover o código para \`${BASE_BRANCH}\`."
+
+  promover-homologacao:
+    name: Abrir PR para homologação após validação
+    if: github.event_name != 'pull_request' && github.ref_name == 'fase-3'
+    needs: testar
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Definir fluxo de promoção
+        id: flow
+        shell: bash
+        run: |
+          case "$GITHUB_REF_NAME" in
+            fase-3)
+              echo "base=homologacao" >> "$GITHUB_OUTPUT"
+              echo "title=chore: promover fase-3 para homologação" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Criar branch homologacao quando ainda não existir
+        if: steps.flow.outputs.base == 'homologacao'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ steps.flow.outputs.base }}
+        shell: bash
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${BASE_BRANCH}" >/dev/null 2>&1; then
+            echo "A branch ${BASE_BRANCH} já existe."
+            exit 0
+          fi
+
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/heads/${BASE_BRANCH}" \
+            -f sha="$main_sha"
+          echo "Branch ${BASE_BRANCH} criada a partir de main."
+
+      - name: Abrir ou manter Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ steps.flow.outputs.base }}
+          PR_TITLE: ${{ steps.flow.outputs.title }}
+        shell: bash
+        run: |
+          existing_pr="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$GITHUB_REF_NAME" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [[ -n "$existing_pr" ]]; then
+            echo "O PR #${existing_pr} já está aberto. Os novos commits foram adicionados automaticamente."
+            exit 0
+          fi
+
+          ahead="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/compare/${BASE_BRANCH}...${GITHUB_REF_NAME}" \
+            --jq '.ahead_by')"
+
+          if [[ "$ahead" == "0" ]]; then
+            echo "Não há commits para promover de ${GITHUB_REF_NAME} para ${BASE_BRANCH}."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --head "$GITHUB_REF_NAME" \
+            --title "$PR_TITLE" \
+            --body "Pull Request criado automaticamente após validação bem-sucedida em \`${GITHUB_REF_NAME}\`.
+              Valide os checks e faça o merge manualmente para promover o código para \`${BASE_BRANCH}\`."

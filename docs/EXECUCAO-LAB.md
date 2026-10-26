@@ -55,9 +55,10 @@ O fluxo de promoção é:
 
 ```text
 push em fase-3
-  -> abre ou atualiza PR de fase-3 para homologacao
+  -> valida e abre ou mantém PR de fase-3 para homologacao
   -> merge manual após os checks
-  -> abre ou atualiza PR de homologacao para main
+  -> valida e faz deploy em homologacao
+  -> após sucesso, abre ou mantém PR de homologacao para main na mesma execução
   -> merge manual após os checks
 ```
 

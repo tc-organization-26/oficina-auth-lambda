@@ -269,3 +269,7 @@ No Datadog procure `env:hom (service:oficina-login OR service:oficina-authorizer
 O repositorio da API fornece o pipeline JSON, o grafico p95 e os monitores.
 Authorizer e Java podem aparecer em traces separados, pois sao etapas distintas
 do API Gateway; nao ha propagacao automatica garantida entre elas.
+
+## Promoção para produção
+
+O workflow `.github/workflows/cicd.yml` executa os testes, o Terraform validate e o deploy em homologação antes de abrir ou manter o PR de `homologacao` para `main`, na mesma execução. Se o deploy falhar, o job de promoção não roda. O merge para produção continua manual. O mesmo workflow também valida `fase-3` antes de abrir o PR para `homologacao`; o deploy ocorre somente após merge em `homologacao` ou `main`.
