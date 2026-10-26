@@ -53,7 +53,9 @@ resource "aws_lambda_function" "login" {
   function_name    = "${local.name}-login"
   role             = var.lab_role_arn
   runtime          = "python3.13"
-  handler          = "handler.login"
+  handler          = var.datadog_enabled ? "datadog_lambda.handler.handler" : "handler.login"
+  layers           = local.datadog_layers
+  memory_size      = 256
   filename         = data.archive_file.function.output_path
   source_code_hash = data.archive_file.function.output_base64sha256
   timeout          = 15
@@ -64,7 +66,9 @@ resource "aws_lambda_function" "login" {
   }
 
   environment {
-    variables = {
+    variables = merge(local.datadog_env, {
+      DD_SERVICE                 = "oficina-login"
+      DD_LAMBDA_HANDLER          = "handler.login"
       AUTH_SECRET_ID             = aws_secretsmanager_secret.auth.id
       DB_HOST                    = data.aws_ssm_parameter.database_endpoint.value
       DB_PORT                    = data.aws_ssm_parameter.database_port.value
@@ -72,7 +76,7 @@ resource "aws_lambda_function" "login" {
       DB_SECRET_ARN              = data.aws_ssm_parameter.database_master_secret_arn.value
       DB_CONNECT_TIMEOUT_SECONDS = tostring(var.database_connect_timeout_seconds)
       JWT_EXPIRATION_SECONDS     = tostring(var.jwt_expiration_seconds)
-    }
+    })
   }
 }
 
@@ -80,11 +84,19 @@ resource "aws_lambda_function" "authorizer" {
   function_name    = "${local.name}-authorizer"
   role             = var.lab_role_arn
   runtime          = "python3.13"
-  handler          = "handler.authorizer"
+  handler          = var.datadog_enabled ? "datadog_lambda.handler.handler" : "handler.authorizer"
+  layers           = local.datadog_layers
+  memory_size      = 256
   filename         = data.archive_file.function.output_path
   source_code_hash = data.archive_file.function.output_base64sha256
   timeout          = 10
-  environment { variables = { AUTH_SECRET_ID = aws_secretsmanager_secret.auth.id } }
+  environment {
+    variables = merge(local.datadog_env, {
+      AUTH_SECRET_ID    = aws_secretsmanager_secret.auth.id
+      DD_SERVICE        = "oficina-authorizer"
+      DD_LAMBDA_HANDLER = "handler.authorizer"
+    })
+  }
 }
 
 resource "aws_apigatewayv2_integration" "login" {

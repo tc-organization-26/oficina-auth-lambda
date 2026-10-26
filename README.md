@@ -191,7 +191,7 @@ Antes de executar `terraform validate`, `plan` ou `apply`, monte o diretório ig
 ```powershell
 New-Item -ItemType Directory -Force package | Out-Null
 python -m pip install --requirement requirements.txt --target package
-Copy-Item src/handler.py package/handler.py -Force
+Copy-Item src/*.py package/ -Force
 ```
 
 Depois:
@@ -244,3 +244,28 @@ Secrets esperados: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TO
     ├── variables.tf
     └── versions.tf
 ```
+
+## Observabilidade Datadog
+
+Os dois handlers emitem JSON com request_id, duracao, resultado, servico e, quando
+o tracer estiver ativo, dd.trace_id/dd.span_id. Login devolve X-Request-ID no header.
+Nao registram CPF, JWT, senhas ou corpo da requisicao. Falhas PostgreSQL e Secrets
+Manager geram integration.failed; respostas 500 sao marcadas no trace como erro.
+
+Nao cadastre outras chaves GitHub. A esteira da API publica a DD_API_KEY ja existente
+no secret AWS `oficina-ENV/datadog`. A esteira Lambda descobre o ARN desse mesmo
+secret e habilita automaticamente as layers Datadog-Python313:127 e
+Datadog-Extension:99 (x86_64). Nenhum valor de chave e incluido no state Terraform.
+DD_APP_KEY e usada somente para administrar os recursos Datadog pela esteira da API.
+
+Na primeira instalacao, publique a API e reexecute o deploy Lambda. Se o secret nao
+existir, a Lambda e publicada sem tracer e o workflow emite um aviso. Outros erros
+na consulta do secret interrompem a esteira. Em deploys posteriores, a instrumentacao
+e ativada automaticamente. A LabRole precisa de secretsmanager:GetSecretValue e
+acesso as layers publicas; a Lambda de login precisa de saida HTTPS pelo NAT.
+A variable opcional DD_SITE deve corresponder ao site da conta usada pela API.
+
+No Datadog procure `env:hom (service:oficina-login OR service:oficina-authorizer)`.
+O repositorio da API fornece o pipeline JSON, o grafico p95 e os monitores.
+Authorizer e Java podem aparecer em traces separados, pois sao etapas distintas
+do API Gateway; nao ha propagacao automatica garantida entre elas.
