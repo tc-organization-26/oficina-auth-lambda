@@ -8,7 +8,7 @@ Componente serverless responsável por autenticar clientes por CPF, consultar su
 
 ```text
 POST /auth/login { cpf }
-  -> Amazon API Gateway
+  -> Amazon API Gateway 
      -> Lambda login em sub-redes privadas
         -> valida formato e dígitos verificadores do CPF
         -> lê as credenciais do RDS no Secrets Manager
