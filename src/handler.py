@@ -7,6 +7,7 @@ import os
 import re
 import ssl
 import time
+from observability import emit, integration, observe
 
 _cached_auth_secret = None
 _cached_database_secret = None
@@ -24,6 +25,7 @@ def _decode(value):
     return base64.urlsafe_b64decode(value + padding)
 
 
+@integration("secretsmanager")
 def _read_secret(secret_id):
     import boto3
 
@@ -64,6 +66,7 @@ def validate_cpf(value):
     return cpf
 
 
+@integration("postgresql")
 def _find_client(cpf):
     import pg8000.dbapi
 
@@ -114,6 +117,7 @@ def _response(status, body):
     return {"statusCode": status, "headers": {"content-type": "application/json"}, "body": json.dumps(body)}
 
 
+@observe("login", "/auth/login")
 def login(event, _context):
     try:
         body = json.loads(event.get("body") or "{}")
@@ -140,10 +144,11 @@ def login(event, _context):
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return _response(400, {"message": "Requisicao invalida."})
     except Exception:
-        LOGGER.exception("Falha ao autenticar cliente por CPF")
+        emit(logging.ERROR, "auth.failed", "Falha ao autenticar cliente por CPF")
         return _response(500, {"message": "Falha interna na autenticacao."})
 
 
+@observe("authorizer")
 def authorizer(event, _context):
     try:
         headers = event.get("headers") or {}

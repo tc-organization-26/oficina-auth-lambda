@@ -14,6 +14,8 @@ env:
   TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
   TF_VAR_environment: ${{ github.ref_name == 'main' && 'prod' || 'hom' }}
   TF_VAR_lab_role_arn: ${{ vars.LAB_ROLE_ARN }}
+  TF_VAR_datadog_site: ${{ vars.DD_SITE || 'datadoghq.com' }}
+  TF_VAR_datadog_version: ${{ github.sha }}
 jobs:
   testar:
     runs-on: ubuntu-latest
@@ -27,7 +29,7 @@ jobs:
         run: |
           mkdir -p package
           python -m pip install --requirement requirements.txt --target package
-          cp src/handler.py package/handler.py
+          cp src/*.py package/
       - uses: hashicorp/setup-terraform@v3
         with: { terraform_version: "1.15.9" }
       - working-directory: terraform
@@ -48,7 +50,7 @@ jobs:
         run: |
           mkdir -p package
           python -m pip install --requirement requirements.txt --target package
-          cp src/handler.py package/handler.py
+          cp src/*.py package/
       - uses: hashicorp/setup-terraform@v3
         with: { terraform_version: "1.15.9" }
       - uses: aws-actions/configure-aws-credentials@v6.3.0
@@ -57,6 +59,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      - name: Reutilizar chave Datadog compartilhada pela API
+        run: |
+          secret_id="oficina-${TF_VAR_environment}/datadog"
+          if secret_arn="$(aws secretsmanager describe-secret --secret-id "$secret_id" --query ARN --output text 2>/tmp/datadog-secret-error)"; then
+            echo 'TF_VAR_datadog_enabled=true' >> "$GITHUB_ENV"
+            echo "TF_VAR_datadog_api_key_secret_arn=$secret_arn" >> "$GITHUB_ENV"
+          elif grep -q ResourceNotFoundException /tmp/datadog-secret-error; then
+            echo 'TF_VAR_datadog_enabled=false' >> "$GITHUB_ENV"
+            echo '::warning::Publique a API primeiro e reexecute este workflow para ativar o Datadog nas Lambdas.'
+          else
+            echo '::error::Nao foi possivel consultar o secret compartilhado Datadog.'
+            exit 1
+          fi
       - working-directory: terraform
         run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="key=oficina/auth/${TF_VAR_environment}.tfstate" -backend-config="region=${{ vars.AWS_REGION || 'us-east-1' }}" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
       - working-directory: terraform
