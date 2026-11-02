@@ -112,7 +112,7 @@ Login esperado: HTTP 200 com `token`. Sem JWT, `/clientes` deve ser recusada. N�
 
 Consulte o [troubleshooting deste repositório](TROUBLESHOOTING.md) para credenciais, branches, dependências e falhas do componente.
 
-## Encerramento
+## Executando destroy
 
 Remova a API antes desta autenticação e destrua este Terraform antes do RDS e do Gateway/rede. Use o mesmo backend/ambiente, revise `terraform plan -destroy` e só então execute `terraform destroy`. O secret JWT usa `recovery_window_in_days=0`; a exclusão não tem janela de recuperação.
 

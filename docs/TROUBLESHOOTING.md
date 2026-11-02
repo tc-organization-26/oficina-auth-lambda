@@ -31,7 +31,7 @@ Para produção, altere o ambiente para `prod` e confira a conta antes de prosse
 - [Login por CPF e respostas HTTP](#login-por-cpf-e-respostas-http)
 - [Authorizer, JWT e rotas do Gateway](#authorizer-jwt-e-rotas-do-gateway)
 - [Rede privada e observabilidade](#rede-privada-e-observabilidade)
-- [Encerramento da autenticação](#encerramento-da-autenticação)
+- [Executando destroy da autenticação](#executando-destroy-da-autenticação)
 
 ## Python, testes e empacotamento
 
@@ -247,8 +247,8 @@ Confira a função/ambiente e a permissão de logs da LabRole. O workflow só ha
 
 Confira região, arquitetura, Python 3.13, versões das layers e permissão de acesso. O site Datadog deve ser o mesmo da API; o login precisa de saída HTTPS. Use `service:oficina-login` ou `service:oficina-authorizer` e o ambiente correto. O Authorizer e o Java podem produzir traces separados; a autorização do Gateway não representa uma chamada HTTP instrumentada direta entre os dois.
 
-## Encerramento da autenticação
+## Executando destroy da autenticação
 
 ### Destroy falha ou secret JWT foi apagado
 
-Remova consumidores da API antes da autenticação e destrua este componente antes do banco/Gateway. A regra no SG RDS pertence a este state, embora o banco pertença a outro repositório. O secret auth usa janela de recuperação zero: sua exclusão não tem período de restauração. Para uma recriação intencional, publique o secret novamente e atualize a API para a mesma chave; tokens antigos deixam de funcionar quando a chave muda. Siga o [encerramento](EXECUCAO-LAB-AWS.md#encerramento).
+Remova consumidores da API antes da autenticação e destrua este componente antes do banco/Gateway. A regra no SG RDS pertence a este state, embora o banco pertença a outro repositório. O secret auth usa janela de recuperação zero: sua exclusão não tem período de restauração. Para uma recriação intencional, publique o secret novamente e atualize a API para a mesma chave; tokens antigos deixam de funcionar quando a chave muda. Siga o [procedimento de destroy](EXECUCAO-LAB-AWS.md#executando-destroy).

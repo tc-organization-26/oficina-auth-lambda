@@ -17,7 +17,7 @@ Os guias abaixo complementam este README com instruções de execução, configu
 - [Instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/INSTALACAO-FERRAMENTAS.md) — instalar ferramentas e conferir o ambiente.
 - [Conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/HEAD/docs/CONTA-AWS-COMUM.md) — preparar IAM, OIDC e adaptar a execução fora do Academy.
 - [Validação local e execução manual](docs/VALIDACAO-E-EXECUCAO-MANUAL.md) — validação e execução pelo terminal.
-- [Execução no laboratório AWS](docs/EXECUCAO-LAB-AWS.md) — checklist GitHub, dependências, deploy e encerramento.
+- [Execução no laboratório AWS](docs/EXECUCAO-LAB-AWS.md) — checklist GitHub, dependências, deploy e destroy.
 - [Tecnologias e versões](docs/VERSOES.md) — tecnologias, ferramentas, versões e fontes.
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — diagnóstico por assunto e recuperação.
 
@@ -340,9 +340,9 @@ A esteira descobre o secret `oficina-ENV/datadog`, alimentado pela API, e habili
 
 Não é necessário duplicar `DD_API_KEY`/`DD_APP_KEY` neste repositório. A configuração compartilhada, dashboards, monitores e limites de correlação estão no [guia Datadog da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/OBSERVABILIDADE.md). Para consultar as funções, filtre `env:hom (service:oficina-login OR service:oficina-authorizer)`.
 
-## Encerramento
+## Executando destroy
 
-Remova a API antes da autenticação e este componente antes do RDS/Gateway, seguindo o [encerramento](docs/EXECUCAO-LAB-AWS.md#encerramento). A exclusão do secret JWT não tem janela de recuperação no código atual. Uma recriação precisa publicar a chave e atualizar os consumidores consistentemente.
+Remova a API antes da autenticação e este componente antes do RDS/Gateway, seguindo o [procedimento de destroy](docs/EXECUCAO-LAB-AWS.md#executando-destroy). A exclusão do secret JWT não tem janela de recuperação no código atual. Uma recriação precisa publicar a chave e atualizar os consumidores consistentemente.
 
 ## Workflow
 

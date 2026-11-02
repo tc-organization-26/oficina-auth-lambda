@@ -90,4 +90,4 @@ O apply manual cria o secret `oficina-hom/auth`, mas não grava seu conteúdo. N
 
 O Datadog é desabilitado por padrão no Terraform local. Para habilitá-lo após a API publicar o secret compartilhado, defina `TF_VAR_datadog_enabled=true`, `TF_VAR_datadog_api_key_secret_arn` com o ARN de `oficina-hom/datadog` e `TF_VAR_datadog_site` correspondente à conta antes do plano.
 
-Para produção, altere tanto `TF_VAR_environment` quanto a chave do backend para `prod`. Não aplique manualmente em paralelo ao Actions. Não versione credenciais, `terraform.tfvars`, pacote, planos ou state; esses arquivos podem conter informações sensíveis. Consulte a [validação e o encerramento na AWS](EXECUCAO-LAB-AWS.md).
+Para produção, altere tanto `TF_VAR_environment` quanto a chave do backend para `prod`. Não aplique manualmente em paralelo ao Actions. Não versione credenciais, `terraform.tfvars`, pacote, planos ou state; esses arquivos podem conter informações sensíveis. Consulte a [validação e o destroy na AWS](EXECUCAO-LAB-AWS.md).
