@@ -2,6 +2,34 @@
 
 Login por CPF e Lambda Authorizer em Python 3.13, com JWT HS256, consulta ao RDS e definição das rotas do API Gateway. O deploy depende de oficina-k8s-infra e oficina-db-infra; o login funcional depende também das migrations da API.
 
+## Contexto e objetivo
+
+O atendimento da oficina usa dados de clientes, veículos, estoque e ordens de serviço. Na implantação AWS, a entrada para essas operações passa pelo API Gateway, com identificação do cliente e validação do token antes do encaminhamento à aplicação.
+
+Este repositório implementa o login por CPF e o Lambda Authorizer. O login consulta o cadastro ativo no PostgreSQL, emite JWT e permite que o cliente da API reutilize o token no ciclo de diagnóstico, orçamento, execução, pagamento e entrega. As regras dessas operações continuam na API Java.
+
+## Navegação
+
+- [Valor para o projeto](#valor-para-o-projeto)
+- [Documentação e guias](#índice-da-documentação)
+- [Execução e deploy](#execução-e-deploy)
+- [Arquitetura e fluxo de autenticação](#arquitetura)
+- [Participação no atendimento](#participação-no-atendimento)
+- [Limites do mecanismo atual](#limites-do-mecanismo-atual)
+- [Caminho da implantação](#caminho-da-implantação)
+- [Contrato e exemplos de login](#acesso-à-api)
+- [Validação integrada](#validação-integrada)
+- [Troubleshooting](#troubleshooting)
+
+## Valor para o projeto
+
+- login integrado ao cadastro ativo de clientes usado pela oficina;
+- emissão de JWT com validade e identidade do cliente;
+- rejeição de chamadas sem token válido nas rotas protegidas do Gateway;
+- chave de assinatura compartilhada com a API pelo Secrets Manager;
+- funções e rotas provisionadas por Terraform, com testes e deploy no GitHub Actions;
+- logs e instrumentação para investigar falhas de login, banco e autorização.
+
 ## Responsabilidades deste repositório
 
 - normalizar e validar o CPF e consultar se o cliente está ativo no RDS;
@@ -101,6 +129,44 @@ Este repositório configura as rotas de login, saúde e aplicação no Gateway e
 O Gateway entrega `POST /auth/login` à Lambda de login, que valida o CPF, consulta o cliente ativo no RDS e emite JWT. Nas chamadas protegidas, a Lambda Authorizer valida o token e devolve a decisão ao Gateway; o Gateway encaminha a requisição pelo VPC Link/NLB à API, que também valida o JWT no Spring Security.
 
 São públicas as rotas `POST /auth/login`, `GET /actuator/health` e `GET /actuator/health/readiness`. As rotas `ANY /` e `ANY /{proxy+}` usam autorização `CUSTOM`, inclusive para Swagger/OpenAPI. Os [diagramas de sequência](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/ARQUITETURA-SOLUCAO.md#sequência-de-autenticação) ficam no documento de arquitetura da solução.
+
+## Participação no atendimento
+
+1. A API inicia e aplica as migrations Flyway, disponibilizando o cadastro de cliente ativo usado no teste.
+2. O consumidor chama `POST /auth/login` com `cpf` pela URL do Gateway.
+3. A Lambda valida o formato e os dígitos do CPF, consulta o cliente no RDS privado e verifica se está ativo.
+4. O login retorna JWT; o consumidor envia `Authorization: Bearer TOKEN` nas operações de negócio.
+5. O Authorizer valida o token e devolve a decisão ao Gateway. O Gateway encaminha as chamadas aceitas para a API via VPC Link e NLB.
+6. O Spring Security valida o JWT novamente; os casos de uso executam as regras da oficina e persistem os dados.
+
+O token permite chamar a API; ele não aprova orçamento, registra pagamento ou altera status automaticamente. Veja o [fluxo completo de atendimento](https://github.com/tc-organization-26/gestao-oficina-tc-1#fluxo-de-atendimento) e o [roteiro Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md) para a demonstração do negócio.
+
+## Limites do mecanismo atual
+
+O login por CPF é o mecanismo de demonstração do projeto. Ele verifica a existência e a situação do cadastro, mas não comprova posse de senha ou segundo fator. O JWT contém `papel=CLIENTE`; as rotas de negócio do Java exigem autenticação, sem regras por papel ou comparação automática entre o `sub` do token e o cliente informado na requisição.
+
+Portanto, os atores cliente, atendente, mecânico e gestor descrevem o processo da oficina, sem representar perfis com permissões distintas já implementadas. A recusa de um token e a validação das regras de uma ordem de serviço são verificações diferentes.
+
+| Ambiente | Quem atende o login | Corpo |
+| --- | --- | --- |
+| AWS pelo API Gateway | Lambda de login | `{"cpf":"00361937040"}` |
+| Compose ou acesso direto ao Java | Controller da API | `{"login":"admin","senha":"ad@456"}` |
+
+A credencial Java é fictícia e serve ao desenvolvimento local. A collection da API deve ser ajustada ao ambiente antes de executar a demonstração. Não use o corpo de login Java na rota Lambda nem o CPF no controller Java.
+
+## Caminho da implantação
+
+```text
+Bootstrap e plataforma: rede, Gateway e integração HTTP
+  → RDS: banco privado e credencial gerenciada
+  → autenticação: pacote Python, funções, secret JWT e rotas
+  → workflow gravar a chave JWT no Secrets Manager
+  → API: copiar configurações, iniciar e executar Flyway
+  → reexecutar autenticação para habilitar Datadog com o secret da API
+  → validar readiness, login, chamada protegida e fluxo de OS
+```
+
+A primeira implantação da autenticação pode ocorrer antes das tabelas, mas o login só deve ser testado depois do Flyway. Se o secret Datadog ainda não existe, a esteira publica sem tracer e orienta a reexecução após a API. As dependências e os acessos estão no [guia AWS](docs/EXECUCAO-AWS.md).
 
 ## Recursos principais
 
@@ -247,6 +313,21 @@ A autenticação usa `oficina/auth/hom.tfstate` ou `oficina/auth/prod.tfstate`. 
 Confirme que as funções estão ativas, aguarde o Flyway da API e siga o [teste de login e rota protegida](docs/EXECUCAO-AWS.md#validar-as-funções-e-o-login). O CPF fictício `003.619.370-40` deve retornar JWT após o seed; uma chamada sem token a `/clientes` deve ser recusada.
 
 Os outputs são `login_function_name`, `authorizer_function_name`, `auth_secret_arn` e `login_lambda_security_group_id`. Falhas de CPF, rede, secrets e Authorizer estão divididas por assunto no [troubleshooting](docs/TROUBLESHOOTING.md).
+
+## Validação integrada
+
+Use a [collection deste componente](docs/insomnia/collection.json) para validar readiness, login por CPF e chamada protegida. Depois, importe a [collection de negócio da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/docs/insomnia/collection.yaml) para executar a pasta **FLUXO COMPLETO** conforme o [roteiro de demonstração](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md).
+
+| Cenário | Resultado esperado |
+| --- | --- |
+| Cliente ativo e CPF válido | `200` com `token` |
+| CPF inválido | `400` |
+| CPF válido sem cadastro | `404` |
+| Cliente inativo | `403` |
+| Rota protegida sem JWT válido | Acesso recusado antes da operação de negócio |
+| JWT válido e requisição de negócio válida | Resposta da API conforme o contrato da operação |
+
+Use dados de teste preparados para cada cenário. Falhas de infraestrutura, secrets ou banco podem retornar `500` e devem ser investigadas nos logs; não significam necessariamente CPF recusado. Para acompanhar a autenticação após habilitar Datadog, filtre as funções pelo ambiente e confirme a coleta conforme o guia de observabilidade.
 
 ## Observabilidade
 
