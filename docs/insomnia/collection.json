@@ -1,0 +1,75 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_source": "oficina-auth-lambda",
+  "resources": [
+    {
+      "_id": "wrk_oficina_auth",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Oficina — Autenticação AWS",
+      "description": "Configure BASE_URL com a URL do API Gateway. Após o Flyway, execute o login por CPF e copie token da resposta para TOKEN antes da consulta protegida.",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_oficina_auth",
+      "_type": "environment",
+      "parentId": "wrk_oficina_auth",
+      "name": "Base Environment",
+      "data": {
+        "BASE_URL": "https://SEU_API_ID.execute-api.us-east-1.amazonaws.com",
+        "CPF": "003.619.370-40",
+        "TOKEN": ""
+      }
+    },
+    {
+      "_id": "req_oficina_auth_readiness",
+      "_type": "request",
+      "parentId": "wrk_oficina_auth",
+      "name": "1. Verificar readiness público",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/actuator/health/readiness",
+      "headers": [],
+      "body": {},
+      "authentication": {},
+      "isPrivate": false
+    },
+    {
+      "_id": "req_oficina_auth_login",
+      "_type": "request",
+      "parentId": "wrk_oficina_auth",
+      "name": "2. Login por CPF",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/auth/login",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.CPF }}\"\n}"
+      },
+      "authentication": {},
+      "isPrivate": false
+    },
+    {
+      "_id": "req_oficina_auth_clientes",
+      "_type": "request",
+      "parentId": "wrk_oficina_auth",
+      "name": "3. Consultar clientes com JWT",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/clientes",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        }
+      ],
+      "body": {},
+      "authentication": {},
+      "isPrivate": false
+    }
+  ]
+}
