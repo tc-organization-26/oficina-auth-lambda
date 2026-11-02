@@ -97,6 +97,12 @@ Prepare o [checklist de acessos e configurações](docs/EXECUCAO-LAB-AWS.md#chec
 
 Conclua plataforma e RDS no mesmo ambiente. O workflow valida o Python, monta o pacote, aplica Terraform e grava `JWT_SECRET` no Secrets Manager. A API é implantada depois para executar Flyway; só então teste o CPF. Reexecute a autenticação após o primeiro deploy da API para habilitar Datadog com o secret compartilhado.
 
+### Acompanhamento dos deploys
+
+Consulte os [Deployments deste repositório](https://github.com/tc-organization-26/oficina-auth-lambda/deployments) para acompanhar as implantações de homologação e produção e acessar a URL do API Gateway registrada pelo workflow. A URL pode mudar entre ambientes e recriações; use `POST /auth/login` para o login por CPF.
+
+As funções são publicadas em pacote ZIP; Dockerfile não se aplica a este componente.
+
 ## Arquitetura
 
 ```mermaid
@@ -186,9 +192,7 @@ A primeira implantação da autenticação pode ocorrer antes das tabelas, mas o
 
 ## Acesso à API
 
-- [Collection Insomnia da autenticação](docs/insomnia/collection.json): configure `BASE_URL`, execute login e copie o token retornado para `TOKEN`.
-
-- [Collection completa da Oficina API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml): requisições para os demais fluxos, em formato Insomnia.
+- [Collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml): inclui o login por CPF da Lambda (`POST /auth/login`) e os fluxos de negócio da API. Configure `BASE_URL` com a URL do Gateway e execute o login antes das chamadas protegidas. A mesma collection atende autenticação e aplicação.
 
 O Swagger Java descreve o login interno `{login, senha}`; o contrato abaixo descreve o login por CPF atendido pela Lambda na nuvem. Os exemplos HTTP podem ser reproduzidos no Insomnia; o [guia AWS](docs/EXECUCAO-LAB-AWS.md#validar-as-funções-e-o-login) traz o teste em PowerShell.
 
@@ -244,7 +248,6 @@ Token ausente, adulterado ou expirado é recusado pelo Lambda Authorizer.
 | [terraform/datadog.tf](terraform/datadog.tf) | Layers e instrumentação das Lambdas |
 | [terraform/variables.tf](terraform/variables.tf), [versions.tf](terraform/versions.tf) e [outputs.tf](terraform/outputs.tf) | Entradas, providers e saídas do Terraform |
 | [.github/workflows/cicd.yml](.github/workflows/cicd.yml) | Testes, pacote, deploy, atualização do secret e promoção |
-| [docs/insomnia/collection.json](docs/insomnia/collection.json) | Readiness, login e chamada protegida |
 
 ## JWT
 
@@ -319,7 +322,7 @@ Os outputs são `login_function_name`, `authorizer_function_name`, `auth_secret_
 
 ## Validação integrada
 
-Use a [collection deste componente](docs/insomnia/collection.json) para validar readiness, login por CPF e chamada protegida. Depois, importe a [collection de negócio da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml) para executar a pasta **FLUXO COMPLETO** conforme o [roteiro de demonstração](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md).
+Importe a [collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml) para validar login por CPF, chamada protegida e executar a pasta **FLUXO COMPLETO** conforme o [roteiro de demonstração](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md).
 
 | Cenário | Resultado esperado |
 | --- | --- |

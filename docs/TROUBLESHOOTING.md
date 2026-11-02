@@ -188,7 +188,7 @@ Os secrets de autenticação e banco são mantidos em cache por instância de ex
 
 ### Teste de login com URL antiga ou corpo de autenticação Java
 
-Use a URL do Gateway publicado no resumo do deploy, sem stage adicional. O endpoint é `POST /auth/login` e recebe JSON `{ "cpf": "003.619.370-40" }`. `login`/`senha` pertencem ao login Java local e ao port-forward. Importe a [collection Insomnia](insomnia/collection.json), ajuste `BASE_URL` e copie o token de sucesso para `TOKEN` antes da consulta protegida.
+Use a URL do Gateway publicado no resumo do deploy, sem stage adicional. O endpoint é `POST /auth/login` e recebe JSON `{ "cpf": "003.619.370-40" }`. `login`/`senha` pertencem ao login Java local e ao port-forward. Importe a [collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml), ajuste `BASE_URL` e copie o token de sucesso para `TOKEN` antes da consulta protegida.
 
 ### Login retorna 400
 
