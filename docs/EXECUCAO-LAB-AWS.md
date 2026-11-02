@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Validação local e execução manual](VALIDACAO-E-EXECUCAO-MANUAL.md)
 
-Para preparar o computador, consulte a [instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/INSTALACAO-FERRAMENTAS.md). Para executar fora do Academy/Vocareum, siga a [preparação de conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/HEAD/docs/CONTA-AWS-COMUM.md), incluindo as adaptações de IAM, Terraform e workflows.
+Para preparar o computador, consulte a [instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/INSTALACAO-FERRAMENTAS.md). Para executar fora do Academy/Vocareum, siga a [preparação de conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/main/docs/CONTA-AWS-COMUM.md), incluindo as adaptações de IAM, Terraform e workflows.
 
 Guia de configuração, implantação e validação deste componente na AWS. Os comandos de verificação usam `hom`; para produção, troque os caminhos/nomes para `prod` e selecione `main`.
 

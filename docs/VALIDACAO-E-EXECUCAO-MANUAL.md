@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Troubleshooting](TROUBLESHOOTING.md) · [AWS](EXECUCAO-LAB-AWS.md)
 
-Para preparar o computador, consulte a [instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/INSTALACAO-FERRAMENTAS.md). Para executar fora do Academy/Vocareum, siga a [preparação de conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/HEAD/docs/CONTA-AWS-COMUM.md), incluindo as adaptações de IAM, Terraform e workflows.
+Para preparar o computador, consulte a [instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/INSTALACAO-FERRAMENTAS.md). Para executar fora do Academy/Vocareum, siga a [preparação de conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/main/docs/CONTA-AWS-COMUM.md), incluindo as adaptações de IAM, Terraform e workflows.
 
 Pré-requisitos: Git e Terraform >= 1.10 (as esteiras fixam 1.15.9). Use Python 3.13 para testes e empacotamento.
 
@@ -14,7 +14,7 @@ Com Python 3.13, na raiz do repositório:
 python -m unittest discover -s tests
 ```
 
-Os testes usam mocks e não acessam AWS ou banco real. Este repositório não fornece servidor HTTP/Compose para executar a Lambda localmente. Para usar toda a API no computador, utilize o [Compose de `gestao-oficina-tc-1`](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/EXECUCAO-LOCAL.md); seu login local é Java com `{login, senha}`.
+Os testes usam mocks e não acessam AWS ou banco real. Este repositório não fornece servidor HTTP/Compose para executar a Lambda localmente. Para usar toda a API no computador, utilize o [Compose de `gestao-oficina-tc-1`](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/EXECUCAO-LOCAL.md); seu login local é Java com `{login, senha}`.
 
 ## Empacotamento
 

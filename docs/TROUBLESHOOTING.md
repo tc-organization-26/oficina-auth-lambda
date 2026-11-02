@@ -4,9 +4,9 @@
 
 ## Troubleshooting de outros repositórios da solução
 
-- [Aplicação: Docker, Java, API, Pods e Datadog](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/TROUBLESHOOTING.md).
-- [Plataforma: bootstrap, EKS, rede e entrada HTTP](https://github.com/tc-organization-26/oficina-k8s-infra/blob/HEAD/docs/TROUBLESHOOTING.md).
-- [Banco: RDS, conectividade, credenciais e snapshots](https://github.com/tc-organization-26/oficina-db-infra/blob/HEAD/docs/TROUBLESHOOTING.md).
+- [Aplicação: Docker, Java, API, Pods e Datadog](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/TROUBLESHOOTING.md).
+- [Plataforma: bootstrap, EKS, rede e entrada HTTP](https://github.com/tc-organization-26/oficina-k8s-infra/blob/main/docs/TROUBLESHOOTING.md).
+- [Banco: RDS, conectividade, credenciais e snapshots](https://github.com/tc-organization-26/oficina-db-infra/blob/main/docs/TROUBLESHOOTING.md).
 
 
 Este guia parte do sintoma, indica o que conferir e orienta a correção. Execute os comandos na raiz deste repositório, salvo indicação diferente. Cada bloco é um procedimento de diagnóstico independente; os exemplos usam PowerShell.
@@ -188,7 +188,7 @@ Os secrets de autenticação e banco são mantidos em cache por instância de ex
 
 ### Teste de login com URL antiga ou corpo de autenticação Java
 
-Use a URL do Gateway publicado no resumo do deploy, sem stage adicional. O endpoint é `POST /auth/login` e recebe JSON `{ "cpf": "003.619.370-40" }`. `login`/`senha` pertencem ao login Java local e ao port-forward. Importe a [collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml), ajuste `BASE_URL` e copie o token de sucesso para `TOKEN` antes da consulta protegida.
+Use a URL do Gateway publicado no resumo do deploy, sem stage adicional. O endpoint é `POST /auth/login` e recebe JSON `{ "cpf": "003.619.370-40" }`. `login`/`senha` pertencem ao login Java local e ao port-forward. Importe a [collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/src/main/resources/insomnia/collection.yaml), ajuste `BASE_URL` e copie o token de sucesso para `TOKEN` antes da consulta protegida.
 
 ### Login retorna 400
 

@@ -14,8 +14,8 @@ Os guias abaixo complementam este README com instruções de execução, configu
 
 **Guias e documentos complementares**
 
-- [Instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/INSTALACAO-FERRAMENTAS.md) — instalar ferramentas e conferir o ambiente.
-- [Conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/HEAD/docs/CONTA-AWS-COMUM.md) — preparar IAM, OIDC e adaptar a execução fora do Academy.
+- [Instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/INSTALACAO-FERRAMENTAS.md) — instalar ferramentas e conferir o ambiente.
+- [Conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/main/docs/CONTA-AWS-COMUM.md) — preparar IAM, OIDC e adaptar a execução fora do Academy.
 - [Validação local e execução manual](docs/VALIDACAO-E-EXECUCAO-MANUAL.md) — validação e execução pelo terminal.
 - [Execução no laboratório AWS](docs/EXECUCAO-LAB-AWS.md) — checklist GitHub, dependências, deploy e destroy.
 - [Tecnologias e versões](docs/VERSOES.md) — tecnologias, ferramentas, versões e fontes.
@@ -127,7 +127,7 @@ flowchart LR
     authorizer -.-> obs
 ```
 
-Consulte os [recursos principais](#recursos-principais) deste componente. A [arquitetura integrada da aplicação](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/ARQUITETURA-SOLUCAO.md) reúne os quatro projetos e suas sequências.
+Consulte os [recursos principais](#recursos-principais) deste componente. A [arquitetura integrada da aplicação](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/ARQUITETURA-SOLUCAO.md) reúne os quatro projetos e suas sequências.
 
 ## Arquitetura provisionada
 
@@ -137,7 +137,7 @@ Este repositório configura as rotas de login, saúde e aplicação no Gateway e
 
 O Gateway entrega `POST /auth/login` à Lambda de login, que valida o CPF, consulta o cliente ativo no RDS e emite JWT. Nas chamadas protegidas, a Lambda Authorizer valida o token e devolve a decisão ao Gateway; o Gateway encaminha a requisição pelo VPC Link/NLB à API, que também valida o JWT no Spring Security.
 
-São públicas as rotas `POST /auth/login`, `GET /actuator/health` e `GET /actuator/health/readiness`. As rotas `ANY /` e `ANY /{proxy+}` usam autorização `CUSTOM`, inclusive para Swagger/OpenAPI. Os [diagramas de sequência](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/ARQUITETURA-SOLUCAO.md#sequência-de-autenticação) ficam no documento de arquitetura da solução.
+São públicas as rotas `POST /auth/login`, `GET /actuator/health` e `GET /actuator/health/readiness`. As rotas `ANY /` e `ANY /{proxy+}` usam autorização `CUSTOM`, inclusive para Swagger/OpenAPI. Os [diagramas de sequência](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/ARQUITETURA-SOLUCAO.md#sequência-de-autenticação) ficam no documento de arquitetura da solução.
 
 ## Participação no atendimento
 
@@ -148,7 +148,7 @@ São públicas as rotas `POST /auth/login`, `GET /actuator/health` e `GET /actua
 5. O Authorizer valida o token e devolve a decisão ao Gateway. O Gateway encaminha as chamadas aceitas para a API via VPC Link e NLB.
 6. O Spring Security valida o JWT novamente; os casos de uso executam as regras da oficina e persistem os dados.
 
-O token permite chamar a API; ele não aprova orçamento, registra pagamento ou altera status automaticamente. Veja o [fluxo completo de atendimento](https://github.com/tc-organization-26/gestao-oficina-tc-1#fluxo-de-atendimento) e o [roteiro Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md) para a demonstração do negócio.
+O token permite chamar a API; ele não aprova orçamento, registra pagamento ou altera status automaticamente. Veja o [fluxo completo de atendimento](https://github.com/tc-organization-26/gestao-oficina-tc-1#fluxo-de-atendimento) e o [roteiro Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/VALIDACAO-FLUXO.md) para a demonstração do negócio.
 
 ## Limites do mecanismo atual
 
@@ -192,7 +192,7 @@ A primeira implantação da autenticação pode ocorrer antes das tabelas, mas o
 
 ## Acesso à API
 
-- [Collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml): inclui o login por CPF da Lambda (`POST /auth/login`) e os fluxos de negócio da API. Configure `BASE_URL` com a URL do Gateway e execute o login antes das chamadas protegidas. A mesma collection atende autenticação e aplicação.
+- [Collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/src/main/resources/insomnia/collection.yaml): inclui o login por CPF da Lambda (`POST /auth/login`) e os fluxos de negócio da API. Configure `BASE_URL` com a URL do Gateway e execute o login antes das chamadas protegidas. A mesma collection atende autenticação e aplicação.
 
 O Swagger Java descreve o login interno `{login, senha}`; o contrato abaixo descreve o login por CPF atendido pela Lambda na nuvem. Os exemplos HTTP podem ser reproduzidos no Insomnia; o [guia AWS](docs/EXECUCAO-LAB-AWS.md#validar-as-funções-e-o-login) traz o teste em PowerShell.
 
@@ -274,7 +274,7 @@ WHERE cpf_cnpj = ?;
 
 O acesso usa `pg8000`, um driver PostgreSQL Python empacotado junto da função. As credenciais não ficam no código nem no state deste repositório: são lidas do secret gerenciado pelo RDS.
 
-O CPF é armazenado sem pontuação. A identificação do [cliente inicial de teste](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/ARQUITETURA-SOLUCAO.md#contratos-segurança-e-persistência) fica documentada junto das migrations da API. O login só funciona depois do primeiro startup da API com o Flyway concluído.
+O CPF é armazenado sem pontuação. A identificação do [cliente inicial de teste](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/ARQUITETURA-SOLUCAO.md#contratos-segurança-e-persistência) fica documentada junto das migrations da API. O login só funciona depois do primeiro startup da API com o Flyway concluído.
 
 ## Rede e segurança
 
@@ -322,7 +322,7 @@ Os outputs são `login_function_name`, `authorizer_function_name`, `auth_secret_
 
 ## Validação integrada
 
-Importe a [collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml) para validar login por CPF, chamada protegida e executar a pasta **FLUXO COMPLETO** conforme o [roteiro de demonstração](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md).
+Importe a [collection completa do Insomnia](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/src/main/resources/insomnia/collection.yaml) para validar login por CPF, chamada protegida e executar a pasta **FLUXO COMPLETO** conforme o [roteiro de demonstração](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/VALIDACAO-FLUXO.md).
 
 | Cenário | Resultado esperado |
 | --- | --- |
@@ -341,7 +341,7 @@ Os handlers emitem logs JSON com identificador, duração e resultado, além de 
 
 A esteira descobre o secret `oficina-ENV/datadog`, alimentado pela API, e habilita as layers `Datadog-Python313:127` e `Datadog-Extension:99` (x86_64). Se o secret ainda não existir, publica sem tracer e emite um aviso; após o deploy da API, reexecute a Lambda. A `LabRole` precisa ler o secret e acessar as layers; o login precisa de saída HTTPS pelo NAT. A variável opcional `DD_SITE` deve corresponder à conta usada pela API.
 
-Não é necessário duplicar `DD_API_KEY`/`DD_APP_KEY` neste repositório. A configuração compartilhada, dashboards, monitores e limites de correlação estão no [guia Datadog da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/OBSERVABILIDADE.md). Para consultar as funções, filtre `env:hom (service:oficina-login OR service:oficina-authorizer)`.
+Não é necessário duplicar `DD_API_KEY`/`DD_APP_KEY` neste repositório. A configuração compartilhada, dashboards, monitores e limites de correlação estão no [guia Datadog da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/OBSERVABILIDADE.md). Para consultar as funções, filtre `env:hom (service:oficina-login OR service:oficina-authorizer)`.
 
 ## Executando destroy
 
