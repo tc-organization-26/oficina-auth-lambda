@@ -188,7 +188,7 @@ A primeira implantação da autenticação pode ocorrer antes das tabelas, mas o
 
 - [Collection Insomnia da autenticação](docs/insomnia/collection.json): configure `BASE_URL`, execute login e copie o token retornado para `TOKEN`.
 
-- [Collection completa da Oficina API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/docs/insomnia/collection.yaml): requisições para os demais fluxos, em formato Insomnia.
+- [Collection completa da Oficina API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml): requisições para os demais fluxos, em formato Insomnia.
 
 O Swagger Java descreve o login interno `{login, senha}`; o contrato abaixo descreve o login por CPF atendido pela Lambda na nuvem. Os exemplos HTTP podem ser reproduzidos no Insomnia; o [guia AWS](docs/EXECUCAO-LAB-AWS.md#validar-as-funções-e-o-login) traz o teste em PowerShell.
 
@@ -319,7 +319,7 @@ Os outputs são `login_function_name`, `authorizer_function_name`, `auth_secret_
 
 ## Validação integrada
 
-Use a [collection deste componente](docs/insomnia/collection.json) para validar readiness, login por CPF e chamada protegida. Depois, importe a [collection de negócio da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/docs/insomnia/collection.yaml) para executar a pasta **FLUXO COMPLETO** conforme o [roteiro de demonstração](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md).
+Use a [collection deste componente](docs/insomnia/collection.json) para validar readiness, login por CPF e chamada protegida. Depois, importe a [collection de negócio da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/resources/insomnia/collection.yaml) para executar a pasta **FLUXO COMPLETO** conforme o [roteiro de demonstração](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/VALIDACAO-FLUXO.md).
 
 | Cenário | Resultado esperado |
 | --- | --- |
