@@ -99,7 +99,7 @@ Conclua plataforma e RDS no mesmo ambiente. O workflow valida o Python, monta o 
 
 ### Acompanhamento dos deploys
 
-Consulte os [Deployments deste repositório](https://github.com/tc-organization-26/oficina-auth-lambda/deployments) para acompanhar as implantações de homologação e produção e acessar a URL do API Gateway registrada pelo workflow. A URL pode mudar entre ambientes e recriações; use `POST /auth/login` para o login por CPF.
+Consulte as [execuções do Actions](https://github.com/tc-organization-26/oficina-auth-lambda/actions) para acompanhar as implantações de homologação e produção e acessar a URL do API Gateway no resumo do workflow. A URL pode mudar entre ambientes e recriações; use `POST /auth/login` para o login por CPF.
 
 As funções são publicadas em pacote ZIP; Dockerfile não se aplica a este componente.
 
@@ -341,7 +341,7 @@ Os handlers emitem logs JSON com identificador, duração e resultado, além de 
 
 A esteira descobre o secret `oficina-ENV/datadog`, alimentado pela API, e habilita as layers `Datadog-Python313:127` e `Datadog-Extension:99` (x86_64). Se o secret ainda não existir, publica sem tracer e emite um aviso; após o deploy da API, reexecute a Lambda. A `LabRole` precisa ler o secret e acessar as layers; o login precisa de saída HTTPS pelo NAT. A variável opcional `DD_SITE` deve corresponder à conta usada pela API.
 
-Não é necessário duplicar `DD_API_KEY`/`DD_APP_KEY` neste repositório. A configuração compartilhada, dashboards, monitores e limites de correlação estão no [guia Datadog da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/OBSERVABILIDADE.md). Para consultar as funções, filtre `env:hom (service:oficina-login OR service:oficina-authorizer)`.
+Não é necessário duplicar `DD_API_KEY`/`DD_APP_KEY` neste repositório. A configuração compartilhada, dashboards, monitores e limites de correlação estão no [guia Datadog da API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/main/docs/OBSERVABILIDADE.md). Para consultar as funções, filtre `env:hom (service:oficina-login OR service:oficina-authorizer)` em homologação ou `env:prod (service:oficina-login OR service:oficina-authorizer)` em produção.
 
 ## Executando destroy
 

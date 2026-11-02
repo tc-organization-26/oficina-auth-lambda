@@ -63,7 +63,7 @@ O Terraform fica em `terraform/` e empacota `../package`. Crie o pacote antes do
 
 Renove juntos `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_SESSION_TOKEN` na organização (com acesso ao repositório) ou nos Repository secrets. Atualize também o terminal utilizado. Verifique espaços acidentais e relógio da máquina se houver erro de assinatura/tempo. Repita `aws sts get-caller-identity`; ele precisa identificar a conta esperada antes de um novo deploy.
 
-Se o erro persistir no Actions, confira se um secret do Environment está sobrescrevendo o valor renovado da organização. Reinicie a execução após corrigir; não é necessário refazer o bootstrap só para renovar credenciais.
+Se o erro persistir no Actions, confira se um Repository secret está sobrescrevendo o valor renovado da organização ou se há um secret de Environment sobrescrevendo a configuração compartilhada. Reinicie a execução após corrigir; não é necessário refazer o bootstrap só para renovar credenciais.
 
 ### ParameterNotFound, ResourceNotFound ou recursos do ambiente errado
 
@@ -178,7 +178,7 @@ O Terraform cria `oficina-ENV/auth`; o workflow grava o JSON com a chave `jwtSec
 aws secretsmanager describe-secret --secret-id "oficina-$oficinaEnv/auth" --query "{Name:Name,Versions:VersionIdsToStages,LastChanged:LastChangedDate}" --output json
 ```
 
-Configure `JWT_SECRET` no Environment utilizado e reexecute a etapa de deploy. Não forneça `AUTH_LOGIN`, `AUTH_PASSWORD` ou `ADMIN_ID`: o login atual consulta cliente por CPF. Uma chave vazia/curta pode causar incompatibilidade com a validação HS256 do Java mesmo se o Python conseguir assinar o token.
+Configure `JWT_SECRET` nos Actions secrets do repositório `oficina-auth-lambda` e reexecute a etapa de deploy. Não forneça `AUTH_LOGIN`, `AUTH_PASSWORD` ou `ADMIN_ID`: o login atual consulta cliente por CPF. Uma chave vazia/curta pode causar incompatibilidade com a validação HS256 do Java mesmo se o Python conseguir assinar o token.
 
 ### Secret mudou, mas funções/API continuam com valor anterior
 
