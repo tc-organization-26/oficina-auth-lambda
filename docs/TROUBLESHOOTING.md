@@ -1,6 +1,6 @@
 # Troubleshooting — oficina-auth-lambda
 
-[README](../README.md) · [Validação local e execução manual](VALIDACAO-E-EXECUCAO-MANUAL.md) · [Execução na AWS](EXECUCAO-AWS.md)
+[README](../README.md) · [Validação local e execução manual](VALIDACAO-E-EXECUCAO-MANUAL.md) · [Execução no laboratório AWS](EXECUCAO-LAB-AWS.md)
 
 ## Troubleshooting de outros repositórios da solução
 
@@ -20,7 +20,7 @@ $env:AWS_DEFAULT_REGION = $oficinaRegion
 aws sts get-caller-identity
 ```
 
-Para produção, altere o ambiente para `prod` e confira a conta antes de prosseguir. As credenciais do GitHub não configuram o terminal; o [guia AWS](EXECUCAO-AWS.md#credenciais-e-ferramentas) explica os pré-requisitos de acesso. Ao compartilhar evidências, informe ambiente, horário, URL/caminho, status HTTP, ID do workflow e mensagem de erro. Remova tokens, senhas e valores de secrets dos trechos compartilhados.
+Para produção, altere o ambiente para `prod` e confira a conta antes de prosseguir. As credenciais do GitHub não configuram o terminal; o [guia AWS](EXECUCAO-LAB-AWS.md#credenciais-e-ferramentas) explica os pré-requisitos de acesso. Ao compartilhar evidências, informe ambiente, horário, URL/caminho, status HTTP, ID do workflow e mensagem de erro. Remova tokens, senhas e valores de secrets dos trechos compartilhados.
 
 ## Assuntos
 
@@ -251,4 +251,4 @@ Confira região, arquitetura, Python 3.13, versões das layers e permissão de a
 
 ### Destroy falha ou secret JWT foi apagado
 
-Remova consumidores da API antes da autenticação e destrua este componente antes do banco/Gateway. A regra no SG RDS pertence a este state, embora o banco pertença a outro repositório. O secret auth usa janela de recuperação zero: sua exclusão não tem período de restauração. Para uma recriação intencional, publique o secret novamente e atualize a API para a mesma chave; tokens antigos deixam de funcionar quando a chave muda. Siga o [encerramento](EXECUCAO-AWS.md#encerramento).
+Remova consumidores da API antes da autenticação e destrua este componente antes do banco/Gateway. A regra no SG RDS pertence a este state, embora o banco pertença a outro repositório. O secret auth usa janela de recuperação zero: sua exclusão não tem período de restauração. Para uma recriação intencional, publique o secret novamente e atualize a API para a mesma chave; tokens antigos deixam de funcionar quando a chave muda. Siga o [encerramento](EXECUCAO-LAB-AWS.md#encerramento).

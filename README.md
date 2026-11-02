@@ -10,8 +10,20 @@ Este repositório implementa o login por CPF e o Lambda Authorizer. O login cons
 
 ## Navegação
 
+Os guias abaixo complementam este README com instruções de execução, configuração e diagnóstico.
+
+**Guias e documentos complementares**
+
+- [Instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/INSTALACAO-FERRAMENTAS.md) — instalar ferramentas e conferir o ambiente.
+- [Conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/HEAD/docs/CONTA-AWS-COMUM.md) — preparar IAM, OIDC e adaptar a execução fora do Academy.
+- [Validação local e execução manual](docs/VALIDACAO-E-EXECUCAO-MANUAL.md) — validação e execução pelo terminal.
+- [Execução no laboratório AWS](docs/EXECUCAO-LAB-AWS.md) — checklist GitHub, dependências, deploy e encerramento.
+- [Tecnologias e versões](docs/VERSOES.md) — tecnologias, ferramentas, versões e fontes.
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — diagnóstico por assunto e recuperação.
+
+**Seções deste README**
+
 - [Valor para o projeto](#valor-para-o-projeto)
-- [Documentação e guias](#índice-da-documentação)
 - [Execução e deploy](#execução-e-deploy)
 - [Arquitetura e fluxo de autenticação](#arquitetura)
 - [Participação no atendimento](#participação-no-atendimento)
@@ -38,15 +50,6 @@ Este repositório implementa o login por CPF e o Lambda Authorizer. O login cons
 - criar o Security Group da Lambda de login e sua regra de acesso ao RDS;
 - empacotar os handlers Python com o driver PostgreSQL;
 - publicar logs estruturados e habilitar layers Datadog quando a configuração compartilhada estiver disponível.
-
-## Índice da documentação
-
-| Assunto | Documento |
-| --- | --- |
-| Validação e execução pelo terminal | [Validação local e execução manual](docs/VALIDACAO-E-EXECUCAO-MANUAL.md) |
-| Checklist GitHub, dependências, deploy e encerramento | [Execução na AWS](docs/EXECUCAO-AWS.md) |
-| Tecnologias, ferramentas, versões e fontes | [Tecnologias e versões](docs/VERSOES.md) |
-| Diagnóstico por assunto e recuperação | [Troubleshooting](docs/TROUBLESHOOTING.md) |
 
 ## Repositórios da solução
 
@@ -86,9 +89,9 @@ Consulte o [guia de validação local e execução manual](docs/VALIDACAO-E-EXEC
 
 O Terraform fica em `terraform/` e empacota `../package`. Este repositório não fornece servidor HTTP local; o Compose da aplicação executa o login Java com `login` e `senha`.
 
-### Deploy e execução na AWS
+### Deploy e execução no laboratório AWS
 
-Prepare o [checklist de acessos e configurações](docs/EXECUCAO-AWS.md#checklist-inicial) e conclua as dependências na [ordem de implantação](docs/EXECUCAO-AWS.md#ordem-da-primeira-implantação). Faça o merge para `homologacao` para disparar o deploy em `hom` e aguarde a conclusão. Para produção, use `main` após validar homologação. **Run workflow é uma alternativa ou reexecução**, não um passo obrigatório após o merge.
+Prepare o [checklist de acessos e configurações](docs/EXECUCAO-LAB-AWS.md#checklist-inicial) e conclua as dependências na [ordem de implantação](docs/EXECUCAO-LAB-AWS.md#ordem-da-primeira-implantação). Faça o merge para `homologacao` para disparar o deploy em `hom` e aguarde a conclusão. Para produção, use `main` após validar homologação. **Run workflow é uma alternativa ou reexecução**, não um passo obrigatório após o merge.
 
 > O código contém adaptações educacionais de IAM e credenciais. Confira a observação do guia AWS antes de utilizá-lo em outra conta.
 
@@ -166,7 +169,7 @@ Bootstrap e plataforma: rede, Gateway e integração HTTP
   → validar readiness, login, chamada protegida e fluxo de OS
 ```
 
-A primeira implantação da autenticação pode ocorrer antes das tabelas, mas o login só deve ser testado depois do Flyway. Se o secret Datadog ainda não existe, a esteira publica sem tracer e orienta a reexecução após a API. As dependências e os acessos estão no [guia AWS](docs/EXECUCAO-AWS.md).
+A primeira implantação da autenticação pode ocorrer antes das tabelas, mas o login só deve ser testado depois do Flyway. Se o secret Datadog ainda não existe, a esteira publica sem tracer e orienta a reexecução após a API. As dependências e os acessos estão no [guia AWS](docs/EXECUCAO-LAB-AWS.md).
 
 ## Recursos principais
 
@@ -187,7 +190,7 @@ A primeira implantação da autenticação pode ocorrer antes das tabelas, mas o
 
 - [Collection completa da Oficina API](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/src/main/docs/insomnia/collection.yaml): requisições para os demais fluxos, em formato Insomnia.
 
-O Swagger Java descreve o login interno `{login, senha}`; o contrato abaixo descreve o login por CPF atendido pela Lambda na nuvem. Os exemplos HTTP podem ser reproduzidos no Insomnia; o [guia AWS](docs/EXECUCAO-AWS.md#validar-as-funções-e-o-login) traz o teste em PowerShell.
+O Swagger Java descreve o login interno `{login, senha}`; o contrato abaixo descreve o login por CPF atendido pela Lambda na nuvem. Os exemplos HTTP podem ser reproduzidos no Insomnia; o [guia AWS](docs/EXECUCAO-LAB-AWS.md#validar-as-funções-e-o-login) traz o teste em PowerShell.
 
 ### Login
 
@@ -310,7 +313,7 @@ A autenticação usa `oficina/auth/hom.tfstate` ou `oficina/auth/prod.tfstate`. 
 
 ## Validação após o deploy
 
-Confirme que as funções estão ativas, aguarde o Flyway da API e siga o [teste de login e rota protegida](docs/EXECUCAO-AWS.md#validar-as-funções-e-o-login). O CPF fictício `003.619.370-40` deve retornar JWT após o seed; uma chamada sem token a `/clientes` deve ser recusada.
+Confirme que as funções estão ativas, aguarde o Flyway da API e siga o [teste de login e rota protegida](docs/EXECUCAO-LAB-AWS.md#validar-as-funções-e-o-login). O CPF fictício `003.619.370-40` deve retornar JWT após o seed; uma chamada sem token a `/clientes` deve ser recusada.
 
 Os outputs são `login_function_name`, `authorizer_function_name`, `auth_secret_arn` e `login_lambda_security_group_id`. Falhas de CPF, rede, secrets e Authorizer estão divididas por assunto no [troubleshooting](docs/TROUBLESHOOTING.md).
 
@@ -339,7 +342,7 @@ Não é necessário duplicar `DD_API_KEY`/`DD_APP_KEY` neste repositório. A con
 
 ## Encerramento
 
-Remova a API antes da autenticação e este componente antes do RDS/Gateway, seguindo o [encerramento](docs/EXECUCAO-AWS.md#encerramento). A exclusão do secret JWT não tem janela de recuperação no código atual. Uma recriação precisa publicar a chave e atualizar os consumidores consistentemente.
+Remova a API antes da autenticação e este componente antes do RDS/Gateway, seguindo o [encerramento](docs/EXECUCAO-LAB-AWS.md#encerramento). A exclusão do secret JWT não tem janela de recuperação no código atual. Uma recriação precisa publicar a chave e atualizar os consumidores consistentemente.
 
 ## Workflow
 
@@ -348,7 +351,7 @@ Remova a API antes da autenticação e este componente antes do RDS/Gateway, seg
 
 ### Fluxo de branches
 
-`fase-3` valida e abre PR para `homologacao`; `homologacao` faz deploy em `hom` e abre PR para `main`; `main` faz deploy em `prod`. Os merges são manuais. Executar manualmente em `fase-3` também só valida. Consulte [branches e ambientes](docs/EXECUCAO-AWS.md#branches-e-ambientes).
+`fase-3` valida e abre PR para `homologacao`; `homologacao` faz deploy em `hom` e abre PR para `main`; `main` faz deploy em `prod`. Os merges são manuais. Executar manualmente em `fase-3` também só valida. Consulte [branches e ambientes](docs/EXECUCAO-LAB-AWS.md#branches-e-ambientes).
 
 ## Troubleshooting
 

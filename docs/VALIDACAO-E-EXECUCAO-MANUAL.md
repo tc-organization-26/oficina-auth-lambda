@@ -1,6 +1,8 @@
 # Validação local e execução manual na AWS — oficina-auth-lambda
 
-[README](../README.md) · [Troubleshooting](TROUBLESHOOTING.md) · [AWS](EXECUCAO-AWS.md)
+[README](../README.md) · [Troubleshooting](TROUBLESHOOTING.md) · [AWS](EXECUCAO-LAB-AWS.md)
+
+Para preparar o computador, consulte a [instalação das ferramentas](https://github.com/tc-organization-26/gestao-oficina-tc-1/blob/HEAD/docs/INSTALACAO-FERRAMENTAS.md). Para executar fora do Academy/Vocareum, siga a [preparação de conta AWS comum](https://github.com/tc-organization-26/oficina-k8s-infra/blob/HEAD/docs/CONTA-AWS-COMUM.md), incluindo as adaptações de IAM, Terraform e workflows.
 
 Pré-requisitos: Git e Terraform >= 1.10 (as esteiras fixam 1.15.9). Use Python 3.13 para testes e empacotamento.
 
@@ -38,7 +40,7 @@ terraform init -backend=false
 terraform validate
 ```
 
-> **Observação:** os comandos AWS abaixo seguem a configuração atual do projeto. Confira as [adaptações educacionais e os pré-requisitos de IAM](EXECUCAO-AWS.md) antes de utilizá-los em outra conta.
+> **Observação:** os comandos AWS abaixo seguem a configuração atual do projeto. Confira as [adaptações educacionais e os pré-requisitos de IAM](EXECUCAO-LAB-AWS.md) antes de utilizá-los em outra conta.
 
 ## Credenciais para comandos locais que acessam a AWS
 
@@ -88,4 +90,4 @@ O apply manual cria o secret `oficina-hom/auth`, mas não grava seu conteúdo. N
 
 O Datadog é desabilitado por padrão no Terraform local. Para habilitá-lo após a API publicar o secret compartilhado, defina `TF_VAR_datadog_enabled=true`, `TF_VAR_datadog_api_key_secret_arn` com o ARN de `oficina-hom/datadog` e `TF_VAR_datadog_site` correspondente à conta antes do plano.
 
-Para produção, altere tanto `TF_VAR_environment` quanto a chave do backend para `prod`. Não aplique manualmente em paralelo ao Actions. Não versione credenciais, `terraform.tfvars`, pacote, planos ou state; esses arquivos podem conter informações sensíveis. Consulte a [validação e o encerramento na AWS](EXECUCAO-AWS.md).
+Para produção, altere tanto `TF_VAR_environment` quanto a chave do backend para `prod`. Não aplique manualmente em paralelo ao Actions. Não versione credenciais, `terraform.tfvars`, pacote, planos ou state; esses arquivos podem conter informações sensíveis. Consulte a [validação e o encerramento na AWS](EXECUCAO-LAB-AWS.md).
