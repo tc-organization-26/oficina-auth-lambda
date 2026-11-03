@@ -156,7 +156,7 @@ O login por CPF é o mecanismo de demonstração do projeto. Ele verifica a exis
 
 Portanto, os atores cliente, atendente, mecânico e gestor descrevem o processo da oficina, sem representar perfis com permissões distintas já implementadas. A recusa de um token e a validação das regras de uma ordem de serviço são verificações diferentes.
 
-| Ambiente | Quem atende o login | Corpo |
+| Ambiente | Quem atende o login | Corpo | 
 | --- | --- | --- |
 | AWS pelo API Gateway | Lambda de login | `{"cpf":"00361937040"}` |
 | Compose ou acesso direto ao Java | Controller da API | `{"login":"admin","senha":"ad@456"}` |
